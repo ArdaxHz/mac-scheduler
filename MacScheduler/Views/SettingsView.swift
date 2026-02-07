@@ -39,6 +39,11 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Advanced", systemImage: "slider.horizontal.3")
                 }
+
+            aboutSettings
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
         }
         .frame(width: 550, height: 350)
     }
@@ -128,6 +133,36 @@ struct SettingsView: View {
                 scriptsDirectory = url.path
             }
         }
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+
+    private var aboutSettings: some View {
+        Form {
+            Section("Application") {
+                HStack {
+                    Text("Version")
+                    Spacer()
+                    Text("\(appVersion) (\(buildNumber))")
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Text("macOS Requirement")
+                    Spacer()
+                    Text("14.0 (Sonoma)+")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 
     private var advancedSettings: some View {

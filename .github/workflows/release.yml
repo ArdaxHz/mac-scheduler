@@ -1,0 +1,70 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build archive
+        run: |
+          xcodebuild archive \
+            -project MacScheduler.xcodeproj \
+            -scheme MacScheduler \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath $RUNNER_TEMP/MacScheduler.xcarchive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export app
+        run: |
+          mkdir -p $RUNNER_TEMP/export
+          cp -R $RUNNER_TEMP/MacScheduler.xcarchive/Products/Applications/*.app $RUNNER_TEMP/export/
+
+      - name: Create DMG
+        run: |
+          APP_NAME="Mac Task Scheduler"
+          hdiutil create -volname "$APP_NAME" \
+            -srcfolder $RUNNER_TEMP/export \
+            -ov -format UDZO \
+            $RUNNER_TEMP/MacTaskScheduler.dmg
+
+      - name: Create zip
+        run: |
+          cd $RUNNER_TEMP/export
+          zip -r $RUNNER_TEMP/MacTaskScheduler.zip *.app
+
+      - name: Generate version tag
+        id: version
+        run: |
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          APP_VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' MacScheduler.xcodeproj/project.pbxproj | head -1 | tr -d '[:space:]')
+          TAG="v${APP_VERSION}-${SHORT_SHA}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Mac Task Scheduler v${{ steps.version.outputs.app_version }}"
+          body: |
+            **Version:** ${{ steps.version.outputs.app_version }}
+            **Commit:** ${{ github.event.head_commit.message }}
+          files: |
+            ${{ runner.temp }}/MacTaskScheduler.dmg
+            ${{ runner.temp }}/MacTaskScheduler.zip
+          make_latest: true

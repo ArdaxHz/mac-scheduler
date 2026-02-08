@@ -9,17 +9,22 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app || sudo xcode-select -s /Applications/Xcode.app
+        run: |
+          # Use the latest available Xcode for macOS 26 SDK / Liquid Glass support
+          ls /Applications/ | grep Xcode | sort -V | tail -5
+          XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using: $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
 
       - name: Create signing certificate
         run: |
-          # Create a self-signed code signing certificate for the CI build
           cat > $RUNNER_TEMP/cert.conf << 'CERTEOF'
           [ req ]
           default_bits       = 2048
@@ -52,13 +57,11 @@ jobs:
             -in $RUNNER_TEMP/cert.pem \
             -passout pass:buildcert
 
-          # Create a temporary keychain
           security create-keychain -p "" $RUNNER_TEMP/build.keychain
           security default-keychain -s $RUNNER_TEMP/build.keychain
           security unlock-keychain -p "" $RUNNER_TEMP/build.keychain
           security set-keychain-settings -lut 3600 $RUNNER_TEMP/build.keychain
 
-          # Import certificate
           security import $RUNNER_TEMP/cert.p12 \
             -k $RUNNER_TEMP/build.keychain \
             -P buildcert \
@@ -84,21 +87,21 @@ jobs:
           mkdir -p $RUNNER_TEMP/export
           cp -R $RUNNER_TEMP/MacScheduler.xcarchive/Products/Applications/*.app $RUNNER_TEMP/export/
 
-          # Deep sign the app bundle
           codesign --force --deep --sign "Mac Task Scheduler Dev" \
             --entitlements MacScheduler/MacScheduler.entitlements \
             --timestamp=none \
             "$RUNNER_TEMP/export/Mac Task Scheduler.app"
 
-          # Verify signature
           codesign --verify --verbose "$RUNNER_TEMP/export/Mac Task Scheduler.app"
 
-      - name: Create zip
+      - name: Create DMG
         run: |
-          cd $RUNNER_TEMP/export
-          # Remove quarantine attributes before zipping
-          xattr -cr "Mac Task Scheduler.app"
-          zip -r $RUNNER_TEMP/MacTaskScheduler.zip *.app
+          xattr -cr "$RUNNER_TEMP/export/Mac Task Scheduler.app"
+
+          hdiutil create -volname "Mac Task Scheduler" \
+            -srcfolder "$RUNNER_TEMP/export" \
+            -ov -format UDZO \
+            "$RUNNER_TEMP/MacTaskScheduler.dmg"
 
       - name: Generate version tag
         id: version
@@ -122,10 +125,12 @@ jobs:
             **Version:** ${{ steps.version.outputs.app_version }}
             **Commit:** ${{ github.event.head_commit.message }}
 
-            **Note:** If macOS shows a security warning when opening the app, right-click the app and select "Open", or run:
+            **Install:** Download the DMG, open it, and drag the app to your Applications folder.
+
+            **Note:** If macOS shows a security warning, right-click the app and select "Open", or run:
             ```
-            xattr -cr "Mac Task Scheduler.app"
+            xattr -cr "/Applications/Mac Task Scheduler.app"
             ```
           files: |
-            ${{ runner.temp }}/MacTaskScheduler.zip
+            ${{ runner.temp }}/MacTaskScheduler.dmg
           make_latest: true

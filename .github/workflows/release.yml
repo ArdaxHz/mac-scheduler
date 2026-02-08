@@ -45,7 +45,12 @@ jobs:
             -inkey $RUNNER_TEMP/key.pem \
             -in $RUNNER_TEMP/cert.pem \
             -passout pass:buildcert \
-            -legacy
+            -legacy 2>/dev/null || \
+          openssl pkcs12 -export \
+            -out $RUNNER_TEMP/cert.p12 \
+            -inkey $RUNNER_TEMP/key.pem \
+            -in $RUNNER_TEMP/cert.pem \
+            -passout pass:buildcert
 
           # Create a temporary keychain
           security create-keychain -p "" $RUNNER_TEMP/build.keychain

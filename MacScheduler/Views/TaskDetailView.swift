@@ -9,6 +9,7 @@ import SwiftUI
 
 struct TaskDetailView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
+    @EnvironmentObject var licenseService: LicenseService
     let task: ScheduledTask
     var onEdit: (ScheduledTask) -> Void
 
@@ -47,6 +48,9 @@ struct TaskDetailView: View {
                     triggerSection
                     optionsSection
                     historySection
+                    if let syncStatus = task.cloudSyncStatus {
+                        cloudSyncIndicator(syncStatus)
+                    }
                 }
                 .padding()
             }
@@ -93,7 +97,7 @@ struct TaskDetailView: View {
                 .foregroundColor(statusColor(for: task.status.state))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.status.state.rawValue)
+                Text(task.name)
                     .font(.headline)
                 Text(task.launchdLabel)
                     .font(.system(.caption, design: .monospaced))
@@ -137,7 +141,7 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(task.isEnabled || viewModel.isLoading)
+                    .disabled(task.isEnabled || viewModel.isLoading || actionsLocked)
                     .help("Load this task into launchd")
 
                     Button {
@@ -148,7 +152,7 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(!task.isEnabled || viewModel.isLoading)
+                    .disabled(!task.isEnabled || viewModel.isLoading || actionsLocked)
                     .help("Unload this task from launchd")
                 }
             }
@@ -178,7 +182,7 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(task.isEnabled || viewModel.isLoading)
+                    .disabled(task.isEnabled || viewModel.isLoading || actionsLocked)
                     .help("Load this task into launchd")
 
                     Button {
@@ -189,7 +193,7 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                    .disabled(!task.isEnabled || viewModel.isLoading)
+                    .disabled(!task.isEnabled || viewModel.isLoading || actionsLocked)
                     .help("Unload this task from launchd")
                 }
             }
@@ -453,6 +457,10 @@ struct TaskDetailView: View {
         }
     }
 
+    private var actionsLocked: Bool {
+        !licenseService.canPerformActions
+    }
+
     private var actionButtonsContent: some View {
         HStack(spacing: 8) {
             Button {
@@ -463,7 +471,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || actionsLocked)
             .help("Execute this task immediately")
 
             Button {
@@ -475,7 +483,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .disabled(viewModel.isLoading)
+            .disabled(viewModel.isLoading || actionsLocked)
             .help(task.isEnabled ? "Unload task from launchd" : "Load task into launchd")
 
             Button {
@@ -486,7 +494,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .disabled(task.isReadOnly)
+            .disabled(task.isReadOnly || actionsLocked)
             .help("Edit task configuration")
 
             Button {
@@ -510,7 +518,7 @@ struct TaskDetailView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .disabled(task.isReadOnly)
+            .disabled(task.isReadOnly || actionsLocked)
             .help("Delete this task and its plist file")
         }
     }
@@ -521,6 +529,49 @@ struct TaskDetailView: View {
         case .disabled: return .secondary
         case .running: return .blue
         case .error: return .red
+        }
+    }
+
+    @ViewBuilder
+    private func cloudSyncIndicator(_ status: CloudSyncStatus) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: syncIcon(for: status))
+                .font(.caption)
+                .foregroundColor(syncColor(for: status))
+            Text(syncLabel(for: status))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(syncColor(for: status).opacity(0.1))
+        .cornerRadius(6)
+    }
+
+    private func syncIcon(for status: CloudSyncStatus) -> String {
+        switch status {
+        case .synced: return "checkmark.icloud"
+        case .localOnly: return "icloud.slash"
+        case .modified: return "arrow.triangle.2.circlepath.icloud"
+        case .cloudNewer: return "icloud.and.arrow.down"
+        }
+    }
+
+    private func syncColor(for status: CloudSyncStatus) -> Color {
+        switch status {
+        case .synced: return .green
+        case .localOnly: return .secondary
+        case .modified: return .orange
+        case .cloudNewer: return .blue
+        }
+    }
+
+    private func syncLabel(for status: CloudSyncStatus) -> String {
+        switch status {
+        case .synced: return "Synced to cloud"
+        case .localOnly: return "Local only"
+        case .modified: return "Local changes pending sync"
+        case .cloudNewer: return "Newer version in cloud"
         }
     }
 }

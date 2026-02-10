@@ -31,6 +31,18 @@
 		A1000027231A0001 /* TaskListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000028231A0001 /* TaskListViewModel.swift */; };
 		A1000029231A0001 /* TaskEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100002A231A0001 /* TaskEditorViewModel.swift */; };
 		A100002B231A0001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100002C231A0001 /* Assets.xcassets */; };
+		B1000001231A0001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B1000002231A0001 /* Supabase */; };
+		B1000003231A0001 /* LicenseTier.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000004231A0001 /* LicenseTier.swift */; };
+		B1000005231A0001 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000006231A0001 /* UserProfile.swift */; };
+		B1000007231A0001 /* CloudTask.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000008231A0001 /* CloudTask.swift */; };
+		B1000009231A0001 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000A231A0001 /* SupabaseManager.swift */; };
+		B100000B231A0001 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000C231A0001 /* AuthService.swift */; };
+		B100000D231A0001 /* LicenseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B100000E231A0001 /* LicenseService.swift */; };
+		B100000F231A0001 /* CloudSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000010231A0001 /* CloudSyncService.swift */; };
+		B1000011231A0001 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000012231A0001 /* AppRootView.swift */; };
+		B1000013231A0001 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000014231A0001 /* AuthView.swift */; };
+		B1000015231A0001 /* LicenseActivationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000016231A0001 /* LicenseActivationView.swift */; };
+		B1000017231A0001 /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1000018231A0001 /* AccountSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +72,17 @@
 		A100002A231A0001 /* TaskEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorViewModel.swift; sourceTree = "<group>"; };
 		A100002C231A0001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100002D231A0001 /* MacScheduler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacScheduler.entitlements; sourceTree = "<group>"; };
+		B1000004231A0001 /* LicenseTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseTier.swift; sourceTree = "<group>"; };
+		B1000006231A0001 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		B1000008231A0001 /* CloudTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTask.swift; sourceTree = "<group>"; };
+		B100000A231A0001 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		B100000C231A0001 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		B100000E231A0001 /* LicenseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseService.swift; sourceTree = "<group>"; };
+		B1000010231A0001 /* CloudSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSyncService.swift; sourceTree = "<group>"; };
+		B1000012231A0001 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		B1000014231A0001 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		B1000016231A0001 /* LicenseActivationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseActivationView.swift; sourceTree = "<group>"; };
+		B1000018231A0001 /* AccountSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +90,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1000001231A0001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +143,9 @@
 				A1000006231A0001 /* TaskTrigger.swift */,
 				A1000008231A0001 /* TaskAction.swift */,
 				A100000A231A0001 /* TaskStatus.swift */,
+				B1000004231A0001 /* LicenseTier.swift */,
+				B1000006231A0001 /* UserProfile.swift */,
+				B1000008231A0001 /* CloudTask.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -131,6 +158,10 @@
 				A1000010231A0001 /* CronService.swift */,
 				A1000012231A0001 /* TaskHistoryService.swift */,
 				A1000031231A0001 /* UpdateService.swift */,
+				B100000A231A0001 /* SupabaseManager.swift */,
+				B100000C231A0001 /* AuthService.swift */,
+				B100000E231A0001 /* LicenseService.swift */,
+				B1000010231A0001 /* CloudSyncService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -146,6 +177,10 @@
 				A1000024231A0001 /* HistoryView.swift */,
 				A1000026231A0001 /* SettingsView.swift */,
 				A100002F231A0001 /* ScriptEditorView.swift */,
+				B1000012231A0001 /* AppRootView.swift */,
+				B1000014231A0001 /* AuthView.swift */,
+				B1000016231A0001 /* LicenseActivationView.swift */,
+				B1000018231A0001 /* AccountSettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -185,6 +220,9 @@
 			dependencies = (
 			);
 			name = MacScheduler;
+			packageProductDependencies = (
+				B1000002231A0001 /* Supabase */,
+			);
 			productName = MacScheduler;
 			productReference = A1000000231A0001 /* MacScheduler.app */;
 			productType = "com.apple.product-type.application";
@@ -213,6 +251,9 @@
 				Base,
 			);
 			mainGroup = A10000E0231A0001;
+			packageReferences = (
+				B1000020231A0001 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			productRefGroup = A10000E2231A0001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -261,6 +302,17 @@
 				A100002E231A0001 /* ScriptEditorView.swift in Sources */,
 				A1000027231A0001 /* TaskListViewModel.swift in Sources */,
 				A1000029231A0001 /* TaskEditorViewModel.swift in Sources */,
+				B1000003231A0001 /* LicenseTier.swift in Sources */,
+				B1000005231A0001 /* UserProfile.swift in Sources */,
+				B1000007231A0001 /* CloudTask.swift in Sources */,
+				B1000009231A0001 /* SupabaseManager.swift in Sources */,
+				B100000B231A0001 /* AuthService.swift in Sources */,
+				B100000D231A0001 /* LicenseService.swift in Sources */,
+				B100000F231A0001 /* CloudSyncService.swift in Sources */,
+				B1000011231A0001 /* AppRootView.swift in Sources */,
+				B1000013231A0001 /* AuthView.swift in Sources */,
+				B1000015231A0001 /* LicenseActivationView.swift in Sources */,
+				B1000017231A0001 /* AccountSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -398,13 +450,14 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MacScheduler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -425,13 +478,14 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MacScheduler/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -461,6 +515,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B1000020231A0001 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B1000002231A0001 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000020231A0001 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000E9231A0001 /* Project object */;
 }

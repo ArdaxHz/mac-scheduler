@@ -11,14 +11,20 @@ class PlistGenerator {
 
     /// Environment variable names that must never be set via task configuration
     /// as they enable code injection or privilege escalation.
+    /// All comparisons must be case-insensitive (env vars are case-sensitive on Unix,
+    /// so an attacker could use mixed case like "Dyld_Insert_Libraries" to bypass).
     static let dangerousEnvVars: Set<String> = [
+        // macOS dyld injection
         "DYLD_INSERT_LIBRARIES",
         "DYLD_LIBRARY_PATH",
         "DYLD_FRAMEWORK_PATH",
         "DYLD_FALLBACK_LIBRARY_PATH",
         "DYLD_FORCE_FLAT_NAMESPACE",
+        "DYLD_PRINT_LIBRARIES",
+        // Linux linker injection
         "LD_PRELOAD",
         "LD_LIBRARY_PATH",
+        // Shell injection
         "BASH_ENV",
         "ENV",
         "CDPATH",
@@ -26,7 +32,26 @@ class PlistGenerator {
         "SHELLOPTS",
         "BASHOPTS",
         "PROMPT_COMMAND",
+        "IFS",
+        // Interpreter hijacking
+        "PYTHONPATH",
+        "PYTHONSTARTUP",
+        "RUBYLIB",
+        "RUBYOPT",
+        "PERL5LIB",
+        "PERL5OPT",
+        "NODE_OPTIONS",
+        "JAVA_TOOL_OPTIONS",
+        // Compiler/build hijacking
+        "LDFLAGS",
+        "CPPFLAGS",
+        "CFLAGS",
     ]
+
+    /// Check if an environment variable name is blocked (case-insensitive).
+    static func isDangerousEnvVar(_ name: String) -> Bool {
+        dangerousEnvVars.contains(name.uppercased())
+    }
 
     func generate(for task: ScheduledTask) -> String {
         // Use array of parts + joined for O(n) instead of O(n²) string concatenation
@@ -102,7 +127,7 @@ class PlistGenerator {
         }
 
         let safeEnvVars = task.action.environmentVariables.filter { key, _ in
-            !Self.dangerousEnvVars.contains(key.uppercased())
+            !Self.isDangerousEnvVar(key)
         }
         if !safeEnvVars.isEmpty {
             parts.append("    <key>EnvironmentVariables</key>")

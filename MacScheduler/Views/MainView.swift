@@ -9,6 +9,8 @@ import SwiftUI
 
 struct MainView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
+    @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var licenseService: LicenseService
     @State private var activeSheet: EditorSheet?
     @State private var selectedNavItem: NavigationItem = .allTasks
 
@@ -37,6 +39,8 @@ struct MainView: View {
     }
 
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
+    @State private var showAuthSheet = false
+    @State private var showLicenseSheet = false
     @State private var showDetailPanel = true
     @State private var detailPanelWidth: CGFloat = 350
     @State private var dragStartWidth: CGFloat?
@@ -52,23 +56,29 @@ struct MainView: View {
         NavigationSplitView {
             sidebar
         } detail: {
-            HStack(spacing: 0) {
-                contentView
-                    .frame(maxWidth: .infinity)
-                if showDetailPanel && viewModel.selectedTask != nil {
-                    resizableDivider
-                    detailView
-                        .frame(width: detailPanelWidth)
-                        .clipped()
+            VStack(spacing: 0) {
+                if !licenseService.canPerformActions {
+                    upgradeBanner
                 }
-            }
-            .overlay(alignment: .trailing) {
-                if let previewWidth = dragPreviewWidth {
-                    Rectangle()
-                        .fill(Color.accentColor.opacity(0.5))
-                        .frame(width: 2)
-                        .offset(x: -(previewWidth - 1))
-                        .allowsHitTesting(false)
+
+                HStack(spacing: 0) {
+                    contentView
+                        .frame(maxWidth: .infinity)
+                    if showDetailPanel && viewModel.selectedTask != nil {
+                        resizableDivider
+                        detailView
+                            .frame(width: detailPanelWidth)
+                            .clipped()
+                    }
+                }
+                .overlay(alignment: .trailing) {
+                    if let previewWidth = dragPreviewWidth {
+                        Rectangle()
+                            .fill(Color.accentColor.opacity(0.5))
+                            .frame(width: 2)
+                            .offset(x: -(previewWidth - 1))
+                            .allowsHitTesting(false)
+                    }
                 }
             }
         }
@@ -85,6 +95,40 @@ struct MainView: View {
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    if authService.isAuthenticated {
+                        if let email = authService.currentUser?.email {
+                            Text(email)
+                        }
+                        Divider()
+                        Button("Account Settings...") {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                            }
+                        }
+                        Divider()
+                        Button("Sign Out") {
+                            Task {
+                                await authService.signOut()
+                                licenseService.reset()
+                            }
+                        }
+                    } else {
+                        Button("Sign In...") {
+                            showAuthSheet = true
+                        }
+                        Button("Account Settings...") {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Account", systemImage: authService.isAuthenticated ? "person.circle.fill" : "person.circle")
+                }
+                .help("Account menu")
+            }
+            ToolbarItem(placement: .automatic) {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showDetailPanel.toggle()
@@ -111,7 +155,17 @@ struct MainView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .createNewTask)) { _ in
+            guard licenseService.canPerformActions else { return }
             activeSheet = .newTask
+        }
+        .sheet(isPresented: $showAuthSheet) {
+            AuthView()
+                .environmentObject(authService)
+                .environmentObject(licenseService)
+        }
+        .sheet(isPresented: $showLicenseSheet) {
+            LicenseActivationView()
+                .environmentObject(licenseService)
         }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {}
@@ -256,6 +310,31 @@ struct MainView: View {
             )
     }
 
+    private var upgradeBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Trial Expired")
+                    .font(.headline)
+                Text("Activate a license key to continue using all features")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Button("Activate License") {
+                showLicenseSheet = true
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.1))
+    }
+
     @ViewBuilder
     private var detailView: some View {
         if let task = viewModel.selectedTask {
@@ -275,4 +354,6 @@ struct MainView: View {
 #Preview {
     MainView()
         .environmentObject(TaskListViewModel())
+        .environmentObject(AuthService.shared)
+        .environmentObject(LicenseService.shared)
 }

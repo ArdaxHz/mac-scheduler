@@ -9,6 +9,7 @@ import SwiftUI
 
 struct TaskListView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
+    @EnvironmentObject var licenseService: LicenseService
     var onAdd: () -> Void
     var onEdit: (ScheduledTask) -> Void
     var onSelect: (ScheduledTask) -> Void
@@ -37,6 +38,7 @@ struct TaskListView: View {
                     Label("Add Task", systemImage: "plus")
                 }
                 .help("Create a new scheduled task")
+                .disabled(!licenseService.canPerformActions)
 
                 Button {
                     Task {
@@ -54,7 +56,7 @@ struct TaskListView: View {
                     Label("Load All", systemImage: "arrow.up.circle")
                 }
                 .help("Load all launchd tasks into the daemon")
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || !licenseService.canPerformActions)
 
                 Button {
                     Task { await viewModel.unloadAllDaemons() }
@@ -62,7 +64,7 @@ struct TaskListView: View {
                     Label("Unload All", systemImage: "arrow.down.circle")
                 }
                 .help("Unload all launchd tasks from the daemon")
-                .disabled(viewModel.isLoading)
+                .disabled(viewModel.isLoading || !licenseService.canPerformActions)
             }
         }
     }
@@ -368,6 +370,7 @@ struct TaskListView: View {
         } label: {
             Label("Run Now", systemImage: "play.fill")
         }
+        .disabled(!licenseService.canPerformActions)
 
         Divider()
 
@@ -380,12 +383,14 @@ struct TaskListView: View {
                 Label("Enable", systemImage: "checkmark")
             }
         }
+        .disabled(!licenseService.canPerformActions)
 
         Button {
             onEdit(task)
         } label: {
             Label("Edit", systemImage: "pencil")
         }
+        .disabled(!licenseService.canPerformActions)
 
         Divider()
 
@@ -394,6 +399,7 @@ struct TaskListView: View {
         } label: {
             Label("Delete", systemImage: "trash")
         }
+        .disabled(!licenseService.canPerformActions)
     }
 
     private var emptyState: some View {
@@ -412,6 +418,7 @@ struct TaskListView: View {
                 Button("Create Task") {
                     NotificationCenter.default.post(name: .createNewTask, object: nil)
                 }
+                .disabled(!licenseService.canPerformActions)
             }
         }
     }

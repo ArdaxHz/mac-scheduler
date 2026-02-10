@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject var authService: AuthService
+    @EnvironmentObject var licenseService: LicenseService
+
     @AppStorage("defaultBackend") private var defaultBackend = SchedulerBackend.launchd.rawValue
     @AppStorage("showNotifications") private var showNotifications = true
     @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
@@ -17,6 +20,12 @@ struct SettingsView: View {
     @State private var showResetConfirmation = false
     @State private var updateCheckState: UpdateCheckState = .idle
     @State private var availableUpdate: UpdateService.Release?
+    @State private var versionTapCount = 0
+    @State private var showHiddenLicense = false
+    @State private var hiddenLicenseKey = ""
+    @State private var hiddenLicenseActivating = false
+    @State private var hiddenLicenseError = ""
+    @State private var hiddenLicenseSuccess = false
 
     enum UpdateCheckState {
         case idle, checking, upToDate, updateAvailable, error
@@ -33,6 +42,11 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
+            AccountSettingsView()
+                .tabItem {
+                    Label("Account", systemImage: "person.circle")
+                }
+
             generalSettings
                 .tabItem {
                     Label("General", systemImage: "gear")
@@ -53,7 +67,7 @@ struct SettingsView: View {
                     Label("About", systemImage: "info.circle")
                 }
         }
-        .frame(width: 550, height: 350)
+        .frame(width: 550, height: 420)
         .confirmationDialog("Reset App", isPresented: $showResetConfirmation) {
             Button("Reset Everything", role: .destructive) {
                 resetApp()
@@ -190,12 +204,56 @@ struct SettingsView: View {
                     Text("\(appVersion) (\(buildNumber))")
                         .foregroundColor(.secondary)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    versionTapCount += 1
+                    if versionTapCount >= 5 {
+                        withAnimation {
+                            showHiddenLicense = true
+                        }
+                    }
+                }
 
                 HStack {
                     Text("macOS Requirement")
                     Spacer()
                     Text("14.0 (Sonoma)+")
                         .foregroundColor(.secondary)
+                }
+            }
+
+            if showHiddenLicense {
+                Section("Activate License") {
+                    HStack {
+                        TextField("License Key", text: $hiddenLicenseKey)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.body, design: .monospaced))
+
+                        Button {
+                            activateHiddenLicense()
+                        } label: {
+                            if hiddenLicenseActivating {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Text("Activate")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(hiddenLicenseKey.isEmpty || hiddenLicenseActivating)
+                    }
+
+                    if hiddenLicenseSuccess {
+                        Label("License activated: \(licenseService.licenseTier.displayName)", systemImage: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+
+                    if !hiddenLicenseError.isEmpty {
+                        Label(hiddenLicenseError, systemImage: "xmark.circle.fill")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
                 }
             }
 
@@ -267,6 +325,22 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func activateHiddenLicense() {
+        hiddenLicenseActivating = true
+        hiddenLicenseError = ""
+        hiddenLicenseSuccess = false
+        Task {
+            do {
+                try await licenseService.activateDeviceWithKey(hiddenLicenseKey)
+                hiddenLicenseSuccess = true
+                hiddenLicenseKey = ""
+            } catch {
+                hiddenLicenseError = error.localizedDescription
+            }
+            hiddenLicenseActivating = false
+        }
     }
 
     private func checkForUpdate() {

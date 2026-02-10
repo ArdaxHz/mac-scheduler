@@ -46,6 +46,7 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
     var isReadOnly: Bool
     /// Full path to the plist file on disk (set during discovery, nil for new tasks).
     var plistFilePath: String?
+    var cloudSyncStatus: CloudSyncStatus?
 
     init(id: UUID = UUID(),
          name: String = "",
@@ -62,7 +63,8 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
          standardErrorPath: String? = nil,
          launchdLabel: String = "",
          isReadOnly: Bool = false,
-         plistFilePath: String? = nil) {
+         plistFilePath: String? = nil,
+         cloudSyncStatus: CloudSyncStatus? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -79,6 +81,7 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
         self.launchdLabel = launchdLabel
         self.isReadOnly = isReadOnly
         self.plistFilePath = plistFilePath
+        self.cloudSyncStatus = cloudSyncStatus
     }
 
     var plistFileName: String {

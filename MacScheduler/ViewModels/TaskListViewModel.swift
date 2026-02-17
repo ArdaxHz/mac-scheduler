@@ -23,6 +23,7 @@ class TaskListViewModel: ObservableObject {
     @Published var filterLastRun: LastRunFilter = .all
     @Published var filterOwnership: OwnershipFilter = .all
     @Published var filterLocation: LocationFilter = .all
+    @Published var isDockerOffline: Bool = false
 
     enum LocationFilter: String, CaseIterable {
         case all = "All"
@@ -115,14 +116,40 @@ class TaskListViewModel: ObservableObject {
             let launchdService = LaunchdService.shared
             let cronService = CronService.shared
 
-            // Fetch launchd + cron tasks in parallel
+            // Fetch launchd + cron + docker tasks in parallel
             async let launchdResult = launchdService.discoverTasks()
             async let cronResult = cronService.discoverTasks()
             let (launchdTasks, cronTasks) = try await (launchdResult, cronResult)
 
+            // Docker discovery is non-blocking — failure should not affect other backends
+            var dockerTasks: [ScheduledTask] = []
+            do {
+                dockerTasks = try await DockerService.shared.discoverTasks()
+            } catch {
+                // Silently ignore Docker errors (Docker may not be installed)
+            }
+            isDockerOffline = !DockerService.shared.isDockerOnline
+
+            // VM discovery — each backend is non-blocking, failures silently ignored
+            var vmTasks: [ScheduledTask] = []
+            let vmServices: [any SchedulerService] = [
+                ParallelsService.shared,
+                VirtualBoxService.shared,
+                UTMService.shared,
+                VMwareFusionService.shared
+            ]
+            for vmService in vmServices {
+                do {
+                    let tasks = try await vmService.discoverTasks()
+                    vmTasks.append(contentsOf: tasks)
+                } catch {
+                    // Silently ignore VM discovery errors (tool may not be installed)
+                }
+            }
+
             // Dedup by task ID (deterministic UUID from label) — prefer user-writable over read-only
             var tasksById: [UUID: ScheduledTask] = [:]
-            tasksById.reserveCapacity(launchdTasks.count + cronTasks.count)
+            tasksById.reserveCapacity(launchdTasks.count + cronTasks.count + dockerTasks.count + vmTasks.count)
             for task in launchdTasks {
                 if let existing = tasksById[task.id] {
                     if !task.isReadOnly && existing.isReadOnly {
@@ -133,6 +160,16 @@ class TaskListViewModel: ObservableObject {
                 }
             }
             for task in cronTasks {
+                if tasksById[task.id] == nil {
+                    tasksById[task.id] = task
+                }
+            }
+            for task in dockerTasks {
+                if tasksById[task.id] == nil {
+                    tasksById[task.id] = task
+                }
+            }
+            for task in vmTasks {
                 if tasksById[task.id] == nil {
                     tasksById[task.id] = task
                 }
@@ -244,15 +281,20 @@ class TaskListViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let service = SchedulerServiceFactory.service(for: task.backend)
-            try await service.install(task: task)
+            if task.backend == .docker {
+                // Docker: just install (docker run -d), no separate enable step
+                try await DockerService.shared.install(task: task)
+            } else {
+                let service = SchedulerServiceFactory.service(for: task.backend)
+                try await service.install(task: task)
 
-            // Always load into launchd to register the daemon
-            try await service.enable(task: task)
+                // Always load into launchd to register the daemon
+                try await service.enable(task: task)
 
-            // If user wants it disabled, unload after registering
-            if !task.isEnabled {
-                try await service.disable(task: task)
+                // If user wants it disabled, unload after registering
+                if !task.isEnabled {
+                    try await service.disable(task: task)
+                }
             }
 
             // Re-discover to pick up the new task from live files
@@ -275,7 +317,10 @@ class TaskListViewModel: ObservableObject {
         }
 
         do {
-            if task.backend == .launchd {
+            if task.backend == .docker {
+                // Docker-specific update path
+                try await updateDockerContainer(oldTask: oldTask, newTask: task)
+            } else if task.backend == .launchd {
                 let launchdService = LaunchdService.shared
                 try await launchdService.updateTask(oldTask: oldTask, newTask: task)
             } else {
@@ -299,6 +344,46 @@ class TaskListViewModel: ObservableObject {
 
             // Select the updated task
             selectedTask = tasks.first { $0.launchdLabel == task.launchdLabel }
+        } catch {
+            showError(message: error.localizedDescription)
+        }
+    }
+
+    /// Docker-specific update: restart policy only → docker update, otherwise → recreate.
+    private func updateDockerContainer(oldTask: ScheduledTask, newTask: ScheduledTask) async throws {
+        let docker = DockerService.shared
+        guard let oldInfo = oldTask.containerInfo, let newInfo = newTask.containerInfo else {
+            throw SchedulerError.invalidTask("Missing container info")
+        }
+
+        if DockerService.needsRecreation(old: oldInfo, new: newInfo) {
+            try await docker.recreateContainer(oldTask: oldTask, newTask: newTask)
+        } else if oldInfo.restartPolicy != newInfo.restartPolicy {
+            try await docker.updateRestartPolicy(task: oldTask, policy: newInfo.restartPolicyEnum)
+        }
+        // If nothing changed, no-op
+    }
+
+    /// Remove a Docker container with cascade options.
+    func deleteDockerContainer(task: ScheduledTask, removeVolumes: Bool, removeImage: Bool, composeDown: Bool) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let docker = DockerService.shared
+
+            if composeDown, let project = task.containerInfo?.composeProject, !project.isEmpty {
+                try await docker.composeDown(projectName: project, removeVolumes: removeVolumes)
+            } else {
+                try await docker.removeWithCascade(task: task, removeVolumes: removeVolumes, removeImage: removeImage)
+            }
+
+            if selectedTask?.id == task.id {
+                selectedTask = nil
+            }
+
+            await historyService.clearHistory(for: task.id)
+            await discoverAllTasks()
         } catch {
             showError(message: error.localizedDescription)
         }

@@ -94,7 +94,7 @@ struct TaskEditorView: View {
                 .disabled(editorViewModel.isEditing && (task?.isReadOnly ?? false))
 
             Picker("Backend", selection: $editorViewModel.backend) {
-                ForEach(SchedulerBackend.allCases, id: \.self) { backend in
+                ForEach(SchedulerBackend.allCases.filter { !$0.isDiscoverOnly }, id: \.self) { backend in
                     Text(backend.displayName).tag(backend)
                 }
             }

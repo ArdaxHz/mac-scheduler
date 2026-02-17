@@ -17,6 +17,12 @@ enum SchedulerError: LocalizedError {
     case cronUpdateFailed(String)
     case permissionDenied(String)
     case fileSystemError(String)
+    case dockerNotAvailable(String)
+    case dockerCommandFailed(String)
+    case dockerOperationNotSupported(String)
+    case vmNotAvailable(String)
+    case vmCommandFailed(String)
+    case vmOperationNotSupported(String)
 
     var errorDescription: String? {
         switch self {
@@ -38,6 +44,18 @@ enum SchedulerError: LocalizedError {
             return "Permission denied: \(reason)"
         case .fileSystemError(let reason):
             return "File system error: \(reason)"
+        case .dockerNotAvailable(let reason):
+            return "Docker not available: \(reason)"
+        case .dockerCommandFailed(let reason):
+            return "Docker command failed: \(reason)"
+        case .dockerOperationNotSupported(let reason):
+            return "Docker operation not supported: \(reason)"
+        case .vmNotAvailable(let reason):
+            return "VM tool not available: \(reason)"
+        case .vmCommandFailed(let reason):
+            return "VM command failed: \(reason)"
+        case .vmOperationNotSupported(let reason):
+            return "VM operation not supported: \(reason)"
         }
     }
 }
@@ -72,6 +90,16 @@ class SchedulerServiceFactory {
             return LaunchdService.shared
         case .cron:
             return CronService.shared
+        case .docker:
+            return DockerService.shared
+        case .parallels:
+            return ParallelsService.shared
+        case .virtualBox:
+            return VirtualBoxService.shared
+        case .utm:
+            return UTMService.shared
+        case .vmwareFusion:
+            return VMwareFusionService.shared
         }
     }
 }

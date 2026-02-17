@@ -11,10 +11,12 @@ struct TaskDetailView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
     let task: ScheduledTask
     var onEdit: (ScheduledTask) -> Void
+    var onRemoveDocker: ((ScheduledTask) -> Void)?
 
     @State private var showDeleteConfirmation = false
     @State private var showScriptEditor = false
     @State private var showExecutionHistory = false
+    @State private var dockerDetailType: DockerDetailType?
 
     private var scriptPath: String? {
         if task.action.type == .shellScript {
@@ -44,9 +46,19 @@ struct TaskDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    actionSection
+                    if task.backend == .docker, let containerInfo = task.containerInfo {
+                        containerSection(containerInfo)
+                    }
+                    if task.backend.isVM, let vmInfo = task.vmInfo {
+                        vmSection(vmInfo)
+                    }
+                    if !task.backend.isVM {
+                        actionSection
+                    }
                     triggerSection
-                    optionsSection
+                    if !task.backend.isDiscoverOnly {
+                        optionsSection
+                    }
                     historySection
                 }
                 .padding()
@@ -67,6 +79,9 @@ struct TaskDetailView: View {
         }
         .sheet(isPresented: $showExecutionHistory) {
             TaskExecutionHistorySheet(task: task)
+        }
+        .sheet(item: $dockerDetailType) { detailType in
+            DockerDetailSheet(detailType: detailType)
         }
     }
 
@@ -146,14 +161,42 @@ struct TaskDetailView: View {
 
     private var headerRightFull: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Label(task.backend.rawValue, systemImage: "gear")
+            Label(task.backend.rawValue, systemImage: backendIconName)
                 .font(.caption)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(task.backend == .launchd ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                .background(backendColor(for: task.backend).opacity(0.2))
                 .cornerRadius(6)
 
-            if task.backend == .launchd {
+            if task.backend == .docker {
+                HStack(spacing: 6) {
+                    Button {
+                        Task { await viewModel.toggleTaskEnabled(task) }
+                    } label: {
+                        Label(task.status.state == .running ? "Stop" : "Start",
+                              systemImage: task.status.state == .running ? "stop.fill" : "play.fill")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(viewModel.isLoading || task.isStale)
+                    .help(task.status.state == .running ? "Stop container" : "Start container")
+                }
+            } else if task.backend.isVM {
+                HStack(spacing: 6) {
+                    Button {
+                        Task { await viewModel.toggleTaskEnabled(task) }
+                    } label: {
+                        Label(task.status.state == .running ? "Stop" : "Start",
+                              systemImage: task.status.state == .running ? "stop.fill" : "play.fill")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(viewModel.isLoading)
+                    .help(task.status.state == .running ? "Stop VM" : "Start VM")
+                }
+            } else if task.backend == .launchd {
                 HStack(spacing: 6) {
                     Button {
                         Task { await viewModel.loadDaemon(task) }
@@ -187,14 +230,25 @@ struct TaskDetailView: View {
 
     private var headerRightCompact: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Image(systemName: "gear")
+            Image(systemName: backendIconName)
                 .font(.caption)
                 .padding(6)
-                .background(task.backend == .launchd ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
+                .background(backendColor(for: task.backend).opacity(0.2))
                 .cornerRadius(6)
                 .help(task.backend.rawValue)
 
-            if task.backend == .launchd {
+            if task.backend == .docker || task.backend.isVM {
+                Button {
+                    Task { await viewModel.toggleTaskEnabled(task) }
+                } label: {
+                    Image(systemName: task.status.state == .running ? "stop.fill" : "play.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading || task.isStale)
+                .help(task.status.state == .running ? "Stop" : "Start")
+            } else if task.backend == .launchd {
                 HStack(spacing: 6) {
                     Button {
                         Task { await viewModel.loadDaemon(task) }
@@ -620,39 +674,87 @@ struct TaskDetailView: View {
 
     private var actionButtonsContent: some View {
         HStack(spacing: 8) {
-            Button {
-                Task { await viewModel.runTaskNow(task) }
-            } label: {
-                Label("Run Now", systemImage: "play.fill")
-                    .font(.caption)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(viewModel.isLoading)
-            .help("Execute this task immediately")
+            if task.backend == .docker {
+                Button {
+                    Task { await viewModel.runTaskNow(task) }
+                } label: {
+                    Label("Restart", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading || task.isStale)
+                .help("Restart this container")
 
-            Button {
-                Task { await viewModel.toggleTaskEnabled(task) }
-            } label: {
-                Label(task.isEnabled ? "Disable" : "Enable",
-                      systemImage: task.isEnabled ? "pause.fill" : "checkmark")
-                    .font(.caption)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(viewModel.isLoading)
-            .help(task.isEnabled ? "Unload task from launchd" : "Load task into launchd")
+                Button {
+                    Task { await viewModel.toggleTaskEnabled(task) }
+                } label: {
+                    Label(task.status.state == .running ? "Stop" : "Start",
+                          systemImage: task.status.state == .running ? "stop.fill" : "play.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading || task.isStale)
+                .help(task.status.state == .running ? "Stop container" : "Start container")
 
-            Button {
-                onEdit(task)
-            } label: {
-                Label("Edit", systemImage: "pencil")
-                    .font(.caption)
+                Button {
+                    onEdit(task)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(task.isStale)
+                .help("Edit container configuration")
+            } else if task.backend.isVM {
+                Button {
+                    Task { await viewModel.toggleTaskEnabled(task) }
+                } label: {
+                    Label(task.status.state == .running ? "Stop" : "Start",
+                          systemImage: task.status.state == .running ? "stop.fill" : "play.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading)
+                .help(task.status.state == .running ? "Stop VM" : "Start VM")
+            } else {
+                Button {
+                    Task { await viewModel.runTaskNow(task) }
+                } label: {
+                    Label("Run Now", systemImage: "play.fill")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading)
+                .help("Execute this task immediately")
+
+                Button {
+                    Task { await viewModel.toggleTaskEnabled(task) }
+                } label: {
+                    Label(task.isEnabled ? "Disable" : "Enable",
+                          systemImage: task.isEnabled ? "pause.fill" : "checkmark")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.isLoading)
+                .help(task.isEnabled ? "Unload task from launchd" : "Load task into launchd")
+
+                Button {
+                    onEdit(task)
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(task.isReadOnly)
+                .help("Edit task configuration")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(task.isReadOnly)
-            .help("Edit task configuration")
 
             Button {
                 Task { await viewModel.refreshTaskStatus(task) }
@@ -667,16 +769,245 @@ struct TaskDetailView: View {
 
             Spacer()
 
-            Button(role: .destructive) {
-                showDeleteConfirmation = true
-            } label: {
-                Label("Delete", systemImage: "trash")
-                    .font(.caption)
+            if task.backend == .docker {
+                Button(role: .destructive) {
+                    onRemoveDocker?(task)
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(task.isStale)
+                .help("Remove this container")
+            } else if !task.backend.isVM {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(task.isReadOnly)
+                .help("Delete this task and its plist file")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(task.isReadOnly)
-            .help("Delete this task and its plist file")
+        }
+    }
+
+    private func containerSection(_ info: ContainerInfo) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Container", systemImage: "shippingbox")
+                    .font(.headline)
+
+                Divider()
+
+                InfoRow(label: "Container ID", value: info.containerId, monospaced: true)
+
+                // Tappable: Image → inspect
+                Button {
+                    dockerDetailType = .imageInspect(info.imageName)
+                } label: {
+                    HStack {
+                        InfoRow(label: "Image", value: info.imageName, monospaced: true)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(task.isStale)
+
+                InfoRow(label: "Runtime", value: info.runtime.rawValue)
+
+                // Tappable: Launch Origin → detail
+                Button {
+                    dockerDetailType = .launchOriginDetail(info)
+                } label: {
+                    HStack {
+                        InfoRow(label: "Launch Origin", value: info.launchOrigin.rawValue)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(task.isStale)
+
+                InfoRow(label: "Restart Policy", value: info.restartPolicy, monospaced: true)
+                InfoRow(label: "Status", value: info.containerStatus)
+
+                if let project = info.composeProject {
+                    // Tappable: Compose Project → config
+                    Button {
+                        dockerDetailType = .composeConfig(project)
+                    } label: {
+                        HStack {
+                            InfoRow(label: "Compose Project", value: project)
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(task.isStale)
+                }
+                if let service = info.composeService {
+                    InfoRow(label: "Compose Service", value: service)
+                }
+                if let networkMode = info.networkMode, !networkMode.isEmpty {
+                    InfoRow(label: "Network Mode", value: networkMode)
+                }
+
+                if !info.ports.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Ports")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ForEach(info.ports, id: \.self) { port in
+                            Text(port)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+                }
+
+                if !info.volumes.isEmpty {
+                    // Tappable: Volumes → inspect
+                    Button {
+                        // Extract volume names from "source:dest" format
+                        let volumeNames = info.volumes.compactMap { vol -> String? in
+                            let parts = vol.components(separatedBy: ":")
+                            guard let source = parts.first, !source.isEmpty else { return nil }
+                            // Only named volumes (not host paths) can be inspected
+                            if source.hasPrefix("/") { return nil }
+                            return source
+                        }
+                        if !volumeNames.isEmpty {
+                            dockerDetailType = .volumeInspect(volumeNames)
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Volumes")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            ForEach(info.volumes, id: \.self) { volume in
+                                Text(volume)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(task.isStale)
+                }
+
+                if !info.command.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Command")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(info.command.joined(separator: " "))
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if let entrypoint = info.entrypoint, !entrypoint.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Entrypoint")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(entrypoint.joined(separator: " "))
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                    }
+                }
+
+                if !info.environmentVariables.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Environment Variables")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        ForEach(info.environmentVariables.sorted(by: { $0.key < $1.key }), id: \.key) { key, value in
+                            HStack(alignment: .top, spacing: 4) {
+                                Text(key)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .fontWeight(.medium)
+                                Text("=")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                Text(value)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    }
+                }
+
+                if let createdAt = info.createdAt {
+                    InfoRow(label: "Created", value: createdAt.formatted(date: .abbreviated, time: .shortened))
+                }
+            }
+        }
+    }
+
+    private func vmSection(_ info: VMInfo) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Virtual Machine", systemImage: "desktopcomputer")
+                    .font(.headline)
+
+                Divider()
+
+                InfoRow(label: "VM ID", value: info.vmId, monospaced: true)
+                InfoRow(label: "State", value: info.vmState)
+
+                if let osType = info.osType {
+                    InfoRow(label: "OS Type", value: osType)
+                }
+                if let cpuCount = info.cpuCount {
+                    InfoRow(label: "CPUs", value: "\(cpuCount)")
+                }
+                if let memoryMB = info.memoryMB {
+                    InfoRow(label: "Memory", value: "\(memoryMB) MB")
+                }
+            }
+        }
+    }
+
+    private var backendIconName: String {
+        switch task.backend {
+        case .launchd: return "gear"
+        case .cron: return "terminal"
+        case .docker: return "shippingbox"
+        case .parallels, .virtualBox, .utm, .vmwareFusion: return "desktopcomputer"
+        }
+    }
+
+    private func backendColor(for backend: SchedulerBackend) -> Color {
+        switch backend {
+        case .launchd: return .blue
+        case .cron: return .orange
+        case .docker: return .teal
+        case .parallels: return .purple
+        case .virtualBox: return .indigo
+        case .utm: return .mint
+        case .vmwareFusion: return .brown
         }
     }
 
@@ -818,6 +1149,6 @@ struct TaskExecutionRow: View {
 }
 
 #Preview {
-    TaskDetailView(task: .example, onEdit: { _ in })
+    TaskDetailView(task: .example, onEdit: { _ in }, onRemoveDocker: { _ in })
         .environmentObject(TaskListViewModel())
 }

@@ -82,7 +82,7 @@ struct SettingsView: View {
         Form {
             Section {
                 Picker("Default Backend", selection: $defaultBackend) {
-                    ForEach(SchedulerBackend.allCases, id: \.rawValue) { backend in
+                    ForEach(SchedulerBackend.allCases.filter { !$0.isDiscoverOnly }, id: \.rawValue) { backend in
                         Text(backend.displayName).tag(backend.rawValue)
                     }
                 }

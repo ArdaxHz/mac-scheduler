@@ -31,6 +31,18 @@
 		A1000027231A0001 /* TaskListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000028231A0001 /* TaskListViewModel.swift */; };
 		A1000029231A0001 /* TaskEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100002A231A0001 /* TaskEditorViewModel.swift */; };
 		A100002B231A0001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100002C231A0001 /* Assets.xcassets */; };
+		A100003B231A0001 /* ContainerInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003C231A0001 /* ContainerInfo.swift */; };
+		A100003D231A0001 /* DockerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003E231A0001 /* DockerService.swift */; };
+		A100003F231A0001 /* DockerEditorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000040231A0001 /* DockerEditorViewModel.swift */; };
+		A1000041231A0001 /* DockerEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000042231A0001 /* DockerEditorView.swift */; };
+		A1000043231A0001 /* DockerRemoveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000044231A0001 /* DockerRemoveSheet.swift */; };
+		A1000045231A0001 /* DockerCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000046231A0001 /* DockerCacheService.swift */; };
+		A1000047231A0001 /* VMInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000048231A0001 /* VMInfo.swift */; };
+		A1000049231A0001 /* ParallelsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100004A231A0001 /* ParallelsService.swift */; };
+		A100004B231A0001 /* VirtualBoxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100004C231A0001 /* VirtualBoxService.swift */; };
+		A100004D231A0001 /* UTMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100004E231A0001 /* UTMService.swift */; };
+		A100004F231A0001 /* VMwareFusionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000050231A0001 /* VMwareFusionService.swift */; };
+		A1000051231A0001 /* DockerDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000052231A0001 /* DockerDetailSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +72,18 @@
 		A100002A231A0001 /* TaskEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorViewModel.swift; sourceTree = "<group>"; };
 		A100002C231A0001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100002D231A0001 /* MacScheduler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacScheduler.entitlements; sourceTree = "<group>"; };
+		A100003C231A0001 /* ContainerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerInfo.swift; sourceTree = "<group>"; };
+		A100003E231A0001 /* DockerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerService.swift; sourceTree = "<group>"; };
+		A1000040231A0001 /* DockerEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerEditorViewModel.swift; sourceTree = "<group>"; };
+		A1000042231A0001 /* DockerEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerEditorView.swift; sourceTree = "<group>"; };
+		A1000044231A0001 /* DockerRemoveSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerRemoveSheet.swift; sourceTree = "<group>"; };
+		A1000046231A0001 /* DockerCacheService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerCacheService.swift; sourceTree = "<group>"; };
+		A1000048231A0001 /* VMInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMInfo.swift; sourceTree = "<group>"; };
+		A100004A231A0001 /* ParallelsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParallelsService.swift; sourceTree = "<group>"; };
+		A100004C231A0001 /* VirtualBoxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualBoxService.swift; sourceTree = "<group>"; };
+		A100004E231A0001 /* UTMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UTMService.swift; sourceTree = "<group>"; };
+		A1000050231A0001 /* VMwareFusionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VMwareFusionService.swift; sourceTree = "<group>"; };
+		A1000052231A0001 /* DockerDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerDetailSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +143,8 @@
 				A1000006231A0001 /* TaskTrigger.swift */,
 				A1000008231A0001 /* TaskAction.swift */,
 				A100000A231A0001 /* TaskStatus.swift */,
+				A100003C231A0001 /* ContainerInfo.swift */,
+				A1000048231A0001 /* VMInfo.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -131,6 +157,12 @@
 				A1000010231A0001 /* CronService.swift */,
 				A1000012231A0001 /* TaskHistoryService.swift */,
 				A1000031231A0001 /* UpdateService.swift */,
+				A100003E231A0001 /* DockerService.swift */,
+				A1000046231A0001 /* DockerCacheService.swift */,
+				A100004A231A0001 /* ParallelsService.swift */,
+				A100004C231A0001 /* VirtualBoxService.swift */,
+				A100004E231A0001 /* UTMService.swift */,
+				A1000050231A0001 /* VMwareFusionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -146,6 +178,9 @@
 				A1000024231A0001 /* HistoryView.swift */,
 				A1000026231A0001 /* SettingsView.swift */,
 				A100002F231A0001 /* ScriptEditorView.swift */,
+				A1000042231A0001 /* DockerEditorView.swift */,
+				A1000044231A0001 /* DockerRemoveSheet.swift */,
+				A1000052231A0001 /* DockerDetailSheet.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -155,6 +190,7 @@
 			children = (
 				A1000028231A0001 /* TaskListViewModel.swift */,
 				A100002A231A0001 /* TaskEditorViewModel.swift */,
+				A1000040231A0001 /* DockerEditorViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -261,6 +297,18 @@
 				A100002E231A0001 /* ScriptEditorView.swift in Sources */,
 				A1000027231A0001 /* TaskListViewModel.swift in Sources */,
 				A1000029231A0001 /* TaskEditorViewModel.swift in Sources */,
+				A100003B231A0001 /* ContainerInfo.swift in Sources */,
+				A100003D231A0001 /* DockerService.swift in Sources */,
+				A100003F231A0001 /* DockerEditorViewModel.swift in Sources */,
+				A1000041231A0001 /* DockerEditorView.swift in Sources */,
+				A1000043231A0001 /* DockerRemoveSheet.swift in Sources */,
+				A1000045231A0001 /* DockerCacheService.swift in Sources */,
+				A1000047231A0001 /* VMInfo.swift in Sources */,
+				A1000049231A0001 /* ParallelsService.swift in Sources */,
+				A100004B231A0001 /* VirtualBoxService.swift in Sources */,
+				A100004D231A0001 /* UTMService.swift in Sources */,
+				A100004F231A0001 /* VMwareFusionService.swift in Sources */,
+				A1000051231A0001 /* DockerDetailSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -404,7 +452,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "1.3.0-alpha";
+				MARKETING_VERSION = "1.6.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -431,7 +479,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "1.3.0-alpha";
+				MARKETING_VERSION = "1.6.0";
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;

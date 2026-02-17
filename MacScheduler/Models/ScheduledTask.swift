@@ -41,11 +41,21 @@ enum TaskLocation: String, Codable, CaseIterable {
 enum SchedulerBackend: String, Codable, CaseIterable {
     case launchd = "launchd"
     case cron = "cron"
+    case docker = "docker"
+    case parallels = "parallels"
+    case virtualBox = "virtualbox"
+    case utm = "utm"
+    case vmwareFusion = "vmware"
 
     var displayName: String {
         switch self {
         case .launchd: return "launchd (Recommended)"
         case .cron: return "cron"
+        case .docker: return "Docker"
+        case .parallels: return "Parallels Desktop"
+        case .virtualBox: return "VirtualBox"
+        case .utm: return "UTM"
+        case .vmwareFusion: return "VMware Fusion"
         }
     }
 
@@ -53,6 +63,27 @@ enum SchedulerBackend: String, Codable, CaseIterable {
         switch self {
         case .launchd: return "Native macOS scheduler with more features"
         case .cron: return "Traditional Unix scheduler"
+        case .docker: return "Docker containers running on this Mac"
+        case .parallels: return "Parallels Desktop virtual machines"
+        case .virtualBox: return "VirtualBox virtual machines"
+        case .utm: return "UTM virtual machines"
+        case .vmwareFusion: return "VMware Fusion virtual machines"
+        }
+    }
+
+    /// Backends that only support discovery (no user-created tasks).
+    var isDiscoverOnly: Bool {
+        switch self {
+        case .launchd, .cron: return false
+        case .docker, .parallels, .virtualBox, .utm, .vmwareFusion: return true
+        }
+    }
+
+    /// Whether this backend represents a virtual machine hypervisor.
+    var isVM: Bool {
+        switch self {
+        case .parallels, .virtualBox, .utm, .vmwareFusion: return true
+        default: return false
         }
     }
 }
@@ -80,6 +111,12 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
     var location: TaskLocation
     /// For system daemons: the user to run as (UserName key in plist).
     var userName: String?
+    /// Container metadata (only set for Docker backend tasks).
+    var containerInfo: ContainerInfo?
+    /// VM metadata (only set for VM backend tasks).
+    var vmInfo: VMInfo?
+    /// Whether this task is from a stale cache (e.g. Docker offline).
+    var isStale: Bool = false
 
     init(id: UUID = UUID(),
          name: String = "",
@@ -98,7 +135,9 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
          isReadOnly: Bool = false,
          plistFilePath: String? = nil,
          location: TaskLocation = .userAgent,
-         userName: String? = nil) {
+         userName: String? = nil,
+         containerInfo: ContainerInfo? = nil,
+         vmInfo: VMInfo? = nil) {
         self.id = id
         self.name = name
         self.description = description
@@ -117,6 +156,8 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
         self.plistFilePath = plistFilePath
         self.location = location
         self.userName = userName
+        self.containerInfo = containerInfo
+        self.vmInfo = vmInfo
     }
 
     var plistFileName: String {
@@ -174,6 +215,12 @@ struct ScheduledTask: Codable, Identifiable, Equatable {
 
     var isEnabled: Bool {
         status.state == .enabled || status.state == .running
+    }
+
+    /// Raw Docker status string for display (e.g. "Up 2 hours", "Exited (0) 3 days ago").
+    var dockerDisplayStatus: String? {
+        guard backend == .docker else { return nil }
+        return containerInfo?.containerStatus
     }
 
     // Sortable key paths for Table columns

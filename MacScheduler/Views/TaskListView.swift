@@ -12,6 +12,8 @@ struct TaskListView: View {
     var onAdd: () -> Void
     var onEdit: (ScheduledTask) -> Void
     var onSelect: (ScheduledTask) -> Void
+    var onAddDocker: () -> Void
+    var onRemoveDocker: (ScheduledTask) -> Void
 
     @State private var sortOrder = [KeyPathComparator(\ScheduledTask.name, order: .forward)]
     @State private var selectedTaskId: UUID?
@@ -20,6 +22,10 @@ struct TaskListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if viewModel.isDockerOffline {
+                dockerOfflineBanner
+            }
+
             filterBar
 
             Divider()
@@ -49,12 +55,22 @@ struct TaskListView: View {
         }
         .toolbar {
             ToolbarItemGroup {
-                Button {
-                    onAdd()
+                Menu {
+                    Button {
+                        onAdd()
+                    } label: {
+                        Label("New Task", systemImage: "gear.badge.plus")
+                    }
+
+                    Button {
+                        onAddDocker()
+                    } label: {
+                        Label("New Docker Container", systemImage: "shippingbox")
+                    }
                 } label: {
-                    Label("Add Task", systemImage: "plus")
+                    Label("Add", systemImage: "plus")
                 }
-                .help("Create a new scheduled task")
+                .help("Create a new task or Docker container")
 
                 Button {
                     Task {
@@ -397,17 +413,28 @@ struct TaskListView: View {
             .width(min: 80, ideal: 180, max: 280)
 
             TableColumn("Backend", value: \.backendName) { task in
-                Text(task.backend.rawValue)
-                    .font(.caption)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(task.backend == .launchd ? Color.blue.opacity(0.2) : Color.orange.opacity(0.2))
-                    .cornerRadius(4)
+                HStack(spacing: 4) {
+                    Image(systemName: backendIcon(for: task.backend))
+                        .font(.caption2)
+                        .foregroundColor(backendColor(for: task.backend))
+                    Text(task.backend.rawValue)
+                        .font(.caption)
+                }
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(backendColor(for: task.backend).opacity(0.2))
+                .cornerRadius(4)
             }
-            .width(min: 50, ideal: 70)
+            .width(min: 50, ideal: 85)
 
             TableColumn("Last Run", value: \.lastRunDate) { task in
-                if task.status.state == .running, let start = task.status.processStartTime {
+                if let dockerStatus = task.dockerDisplayStatus {
+                    Text(dockerStatus)
+                        .font(.caption)
+                        .foregroundColor(task.status.state == .running ? .blue : task.status.state == .error ? .red : .secondary)
+                        .lineLimit(1)
+                        .help(dockerStatus)
+                } else if task.status.state == .running, let start = task.status.processStartTime {
                     Text("Up \(start, style: .relative)")
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -470,6 +497,15 @@ struct TaskListView: View {
 
     @ViewBuilder
     private func contextMenuItems(for task: ScheduledTask) -> some View {
+        if task.backend == .docker {
+            dockerContextMenuItems(for: task)
+        } else {
+            defaultContextMenuItems(for: task)
+        }
+    }
+
+    @ViewBuilder
+    private func defaultContextMenuItems(for task: ScheduledTask) -> some View {
         Button {
             Task { await viewModel.runTaskNow(task) }
         } label: {
@@ -503,6 +539,50 @@ struct TaskListView: View {
         }
     }
 
+    @ViewBuilder
+    private func dockerContextMenuItems(for task: ScheduledTask) -> some View {
+        if task.status.state == .running {
+            Button {
+                Task { await viewModel.toggleTaskEnabled(task) }
+            } label: {
+                Label("Stop Container", systemImage: "stop.fill")
+            }
+            .disabled(task.isStale)
+        } else {
+            Button {
+                Task { await viewModel.toggleTaskEnabled(task) }
+            } label: {
+                Label("Start Container", systemImage: "play.fill")
+            }
+            .disabled(task.isStale)
+        }
+
+        Button {
+            Task { await viewModel.runTaskNow(task) }
+        } label: {
+            Label("Restart Container", systemImage: "arrow.triangle.2.circlepath")
+        }
+        .disabled(task.isStale)
+
+        Divider()
+
+        Button {
+            onEdit(task)
+        } label: {
+            Label("Edit Container", systemImage: "pencil")
+        }
+        .disabled(task.isStale)
+
+        Divider()
+
+        Button(role: .destructive) {
+            onRemoveDocker(task)
+        } label: {
+            Label("Remove Container", systemImage: "trash")
+        }
+        .disabled(task.isStale)
+    }
+
     private var emptyState: some View {
         ContentUnavailableView {
             Label("No Tasks", systemImage: "calendar.badge.exclamationmark")
@@ -529,6 +609,41 @@ struct TaskListView: View {
         case .disabled: return .secondary
         case .running: return .blue
         case .error: return .red
+        }
+    }
+
+    private var dockerOfflineBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+            Text("Docker is not running — showing cached containers")
+                .font(.caption)
+                .foregroundColor(.orange)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.1))
+    }
+
+    private func backendColor(for backend: SchedulerBackend) -> Color {
+        switch backend {
+        case .launchd: return .blue
+        case .cron: return .orange
+        case .docker: return .teal
+        case .parallels: return .purple
+        case .virtualBox: return .indigo
+        case .utm: return .mint
+        case .vmwareFusion: return .brown
+        }
+    }
+
+    private func backendIcon(for backend: SchedulerBackend) -> String {
+        switch backend {
+        case .launchd: return "gear"
+        case .cron: return "terminal"
+        case .docker: return "shippingbox"
+        case .parallels, .virtualBox, .utm, .vmwareFusion: return "desktopcomputer"
         }
     }
 }
@@ -566,6 +681,6 @@ struct StatusFilterChip: View {
 }
 
 #Preview {
-    TaskListView(onAdd: {}, onEdit: { _ in }, onSelect: { _ in })
+    TaskListView(onAdd: {}, onEdit: { _ in }, onSelect: { _ in }, onAddDocker: {}, onRemoveDocker: { _ in })
         .environmentObject(TaskListViewModel())
 }

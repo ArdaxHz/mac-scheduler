@@ -20,18 +20,17 @@ struct MainView: View {
     enum EditorSheet: Identifiable {
         case newTask
         case editTask(ScheduledTask)
+        case newDockerContainer
+        case editDockerContainer(ScheduledTask)
+        case removeDockerContainer(ScheduledTask)
 
         var id: String {
             switch self {
             case .newTask: return "new-task"
-            case .editTask(let task): return task.id.uuidString
-            }
-        }
-
-        var task: ScheduledTask? {
-            switch self {
-            case .newTask: return nil
-            case .editTask(let task): return task
+            case .editTask(let task): return "edit-\(task.id.uuidString)"
+            case .newDockerContainer: return "new-docker"
+            case .editDockerContainer(let task): return "edit-docker-\(task.id.uuidString)"
+            case .removeDockerContainer(let task): return "remove-docker-\(task.id.uuidString)"
             }
         }
     }
@@ -102,12 +101,25 @@ struct MainView: View {
             }
         }
         .sheet(item: $activeSheet) { sheet in
-            TaskEditorView(task: sheet.task) { task in
-                if sheet.task != nil {
-                    Task { await viewModel.updateTask(task) }
-                } else {
+            switch sheet {
+            case .newTask:
+                TaskEditorView(task: nil) { task in
                     Task { await viewModel.addTask(task) }
                 }
+            case .editTask(let existingTask):
+                TaskEditorView(task: existingTask) { task in
+                    Task { await viewModel.updateTask(task) }
+                }
+            case .newDockerContainer:
+                DockerEditorView(task: nil) { task in
+                    Task { await viewModel.addTask(task) }
+                }
+            case .editDockerContainer(let existingTask):
+                DockerEditorView(task: existingTask) { task in
+                    Task { await viewModel.updateTask(task) }
+                }
+            case .removeDockerContainer(let existingTask):
+                DockerRemoveSheet(task: existingTask)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .createNewTask)) { _ in
@@ -192,10 +204,23 @@ struct MainView: View {
                     activeSheet = .newTask
                 },
                 onEdit: { task in
-                    activeSheet = .editTask(task)
+                    if task.backend.isVM {
+                        // VM tasks are read-only — no editor
+                        viewModel.selectedTask = task
+                    } else if task.backend == .docker {
+                        activeSheet = .editDockerContainer(task)
+                    } else {
+                        activeSheet = .editTask(task)
+                    }
                 },
                 onSelect: { task in
                     viewModel.selectedTask = task
+                },
+                onAddDocker: {
+                    activeSheet = .newDockerContainer
+                },
+                onRemoveDocker: { task in
+                    activeSheet = .removeDockerContainer(task)
                 }
             )
         case .history:
@@ -259,9 +284,19 @@ struct MainView: View {
     @ViewBuilder
     private var detailView: some View {
         if let task = viewModel.selectedTask {
-            TaskDetailView(task: task) { task in
-                activeSheet = .editTask(task)
-            }
+            TaskDetailView(
+                task: task,
+                onEdit: { editedTask in
+                    if editedTask.backend == .docker {
+                        activeSheet = .editDockerContainer(editedTask)
+                    } else {
+                        activeSheet = .editTask(editedTask)
+                    }
+                },
+                onRemoveDocker: { removeTask in
+                    activeSheet = .removeDockerContainer(removeTask)
+                }
+            )
         } else {
             ContentUnavailableView {
                 Label("No Task Selected", systemImage: "calendar.badge.clock")

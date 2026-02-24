@@ -70,15 +70,25 @@ actor UpdateService {
         }
     }
 
-    /// Extract semver from tag like "v1.2.0-abc1234" → "1.2.0"
+    /// Extract semver from a GitHub release tag.
+    /// CI tags follow `v{MARKETING_VERSION}-{SHORT_SHA}`, e.g.:
+    ///   "v0.6.0-abc1234"       → "0.6.0"
+    ///   "v0.6.0-alpha-abc1234" → "0.6.0-alpha"
+    ///   "v1.0.0-beta.2-abc1234" → "1.0.0-beta.2"
+    /// The trailing commit hash (7+ hex chars after the last dash) is stripped,
+    /// but pre-release labels are preserved.
     private func extractVersion(from tag: String) -> String {
         var version = tag
         // Strip surrounding quotes (defense against CI quoting issues)
         version = version.replacingOccurrences(of: "\"", with: "")
         if version.hasPrefix("v") { version = String(version.dropFirst()) }
-        // Strip anything after a dash (commit hash suffix, pre-release label)
-        if let dashIndex = version.firstIndex(of: "-") {
-            version = String(version[..<dashIndex])
+        // Strip trailing commit hash suffix: last segment after `-` that is 7+ hex chars
+        if let lastDash = version.lastIndex(of: "-") {
+            let suffix = String(version[version.index(after: lastDash)...])
+            let isCommitHash = suffix.count >= 7 && suffix.allSatisfy { $0.isHexDigit }
+            if isCommitHash {
+                version = String(version[..<lastDash])
+            }
         }
         return version
     }
@@ -95,15 +105,18 @@ actor UpdateService {
         return cleaned.split(separator: ".").compactMap { Int($0) }
     }
 
-    /// Check whether a version string contains a pre-release suffix (e.g. "-alpha", "-beta").
-    private func hasPreRelease(_ version: String) -> Bool {
+    /// Extract the pre-release suffix from a version string.
+    /// "0.6.0-alpha" → "alpha", "1.0.0-beta.2" → "beta.2", "1.0.0" → nil
+    private func preReleaseSuffix(_ version: String) -> String? {
         let cleaned = version.replacingOccurrences(of: "\"", with: "")
-        return cleaned.contains("-")
+        guard let dashIndex = cleaned.firstIndex(of: "-") else { return nil }
+        let suffix = String(cleaned[cleaned.index(after: dashIndex)...])
+        return suffix.isEmpty ? nil : suffix
     }
 
     /// Compare semver strings. Returns true if remote is newer than current.
-    /// When numeric parts are equal, a stable release is newer than a pre-release
-    /// (e.g. "0.6.0" > "0.6.0-alpha").
+    /// Follows semver pre-release precedence:
+    ///   0.6.0-alpha < 0.6.0-alpha.1 < 0.6.0-beta < 0.6.0-rc.1 < 0.6.0
     private func isNewer(remote: String, current: String) -> Bool {
         let remoteParts = parseVersion(remote)
         let currentParts = parseVersion(current)
@@ -115,11 +128,56 @@ actor UpdateService {
             if r < c { return false }
         }
 
-        // Numeric parts are equal — stable beats pre-release
-        if hasPreRelease(current) && !hasPreRelease(remote) {
-            return true
-        }
+        // Numeric parts are equal — compare pre-release labels per semver
+        let remotePre = preReleaseSuffix(remote)
+        let currentPre = preReleaseSuffix(current)
 
-        return false
+        switch (remotePre, currentPre) {
+        case (nil, nil):
+            return false // Both stable, same version
+        case (nil, .some):
+            return true  // Remote is stable, current is pre-release → update
+        case (.some, nil):
+            return false // Remote is pre-release, current is stable → no update
+        case let (.some(rPre), .some(cPre)):
+            return comparePreRelease(rPre, isNewerThan: cPre)
+        }
+    }
+
+    /// Compare pre-release identifiers per semver specification.
+    /// Identifiers are dot-separated and compared left to right:
+    ///   - Numeric identifiers are compared as integers
+    ///   - String identifiers are compared lexically
+    ///   - Numeric identifiers always have lower precedence than string identifiers
+    ///   - A larger set of identifiers has higher precedence if all preceding are equal
+    /// Examples: "alpha" < "alpha.1" < "beta" < "beta.2" < "beta.11" < "rc.1"
+    private func comparePreRelease(_ remote: String, isNewerThan current: String) -> Bool {
+        let remoteIds = remote.split(separator: ".")
+        let currentIds = current.split(separator: ".")
+
+        for i in 0..<max(remoteIds.count, currentIds.count) {
+            // Fewer identifiers = lower precedence (if all preceding are equal)
+            guard i < remoteIds.count else { return false }
+            guard i < currentIds.count else { return true }
+
+            let r = remoteIds[i]
+            let c = currentIds[i]
+            if r == c { continue }
+
+            let rNum = Int(r)
+            let cNum = Int(c)
+
+            switch (rNum, cNum) {
+            case let (.some(rn), .some(cn)):
+                return rn > cn  // Both numeric: compare as integers
+            case (.some, nil):
+                return false    // Numeric < string per semver
+            case (nil, .some):
+                return true     // String > numeric per semver
+            case (nil, nil):
+                return r > c    // Both strings: lexicographic comparison
+            }
+        }
+        return false // Equal
     }
 }

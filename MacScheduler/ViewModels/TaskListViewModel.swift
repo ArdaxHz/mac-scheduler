@@ -128,7 +128,6 @@ class TaskListViewModel: ObservableObject {
             } catch {
                 // Silently ignore Docker errors (Docker may not be installed)
             }
-            isDockerOffline = !DockerService.shared.isDockerOnline
 
             // VM discovery — each backend is non-blocking, failures silently ignored
             var vmTasks: [ScheduledTask] = []
@@ -262,6 +261,10 @@ class TaskListViewModel: ObservableObject {
             }
 
             allTasks.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            // Set Docker offline flag and tasks together so the banner and
+            // cached containers appear in the same render pass.
+            isDockerOffline = !DockerService.shared.isDockerOnline
             tasks = allTasks
 
             // Update selected task if it still exists

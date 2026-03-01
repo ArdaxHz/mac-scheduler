@@ -200,6 +200,19 @@ class CronService: SchedulerService {
         return truncated.isEmpty ? "unknown" : truncated
     }
 
+    /// Get the current cron entry for a task as raw text (tag line + cron line).
+    func getCurrentCronEntry(for task: ScheduledTask) async -> String? {
+        guard let crontab = try? await getCurrentCrontab() else { return nil }
+        let tag = task.cronTag
+
+        for i in 0..<crontab.count {
+            if crontab[i] == tag, i + 1 < crontab.count {
+                return "\(crontab[i])\n\(crontab[i + 1])"
+            }
+        }
+        return nil
+    }
+
     private func getCurrentCrontab() async throws -> [String] {
         let result = try await shellExecutor.execute(
             command: "/usr/bin/crontab",

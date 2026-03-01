@@ -16,7 +16,9 @@ struct TaskDetailView: View {
     @State private var showDeleteConfirmation = false
     @State private var showScriptEditor = false
     @State private var showExecutionHistory = false
+    @State private var showVersionHistory = false
     @State private var dockerDetailType: DockerDetailType?
+    @State private var versionSnapshots: [TaskSnapshot] = []
 
     private var scriptPath: String? {
         if task.action.type == .shellScript {
@@ -60,8 +62,19 @@ struct TaskDetailView: View {
                         optionsSection
                     }
                     historySection
+                    if !task.isReadOnly && !task.backend.isDiscoverOnly {
+                        versionHistorySection
+                    }
                 }
                 .padding()
+            }
+        }
+        .task {
+            versionSnapshots = await TaskVersionService.shared.getSnapshots(for: task.launchdLabel)
+        }
+        .onChange(of: task.launchdLabel) { _, newLabel in
+            Task {
+                versionSnapshots = await TaskVersionService.shared.getSnapshots(for: newLabel)
             }
         }
         .confirmationDialog("Delete Task", isPresented: $showDeleteConfirmation) {
@@ -70,7 +83,7 @@ struct TaskDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Are you sure you want to delete '\(task.name)'? This action cannot be undone.")
+            Text("Are you sure you want to delete '\(task.name)'? The task configuration will be saved to Trash for recovery.")
         }
         .sheet(isPresented: $showScriptEditor) {
             if let path = scriptPath {
@@ -82,6 +95,9 @@ struct TaskDetailView: View {
         }
         .sheet(item: $dockerDetailType) { detailType in
             DockerDetailSheet(detailType: detailType)
+        }
+        .sheet(isPresented: $showVersionHistory) {
+            VersionHistorySheet(task: task)
         }
     }
 
@@ -560,6 +576,60 @@ struct TaskDetailView: View {
                 }
 
                 logFileOutputSection
+            }
+        }
+    }
+
+    private var versionHistorySection: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("Version History", systemImage: "clock.arrow.2.circlepath")
+                        .font(.headline)
+                    Spacer()
+                    if !versionSnapshots.isEmpty {
+                        Button {
+                            showVersionHistory = true
+                        } label: {
+                            Label("View All", systemImage: "list.bullet")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .help("View all version history")
+                    }
+                }
+
+                Divider()
+
+                if versionSnapshots.isEmpty {
+                    Text("No version history recorded yet.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    Text("\(versionSnapshots.count) version\(versionSnapshots.count == 1 ? "" : "s") saved")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    ForEach(versionSnapshots.prefix(3)) { snapshot in
+                        HStack(spacing: 8) {
+                            Image(systemName: snapshot.reason == .beforeEdit ? "pencil.circle" : "trash.circle")
+                                .foregroundColor(snapshot.reason == .beforeEdit ? .blue : .red)
+                                .font(.caption)
+
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(snapshot.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                Text(snapshot.reason == .beforeEdit ? "Before Edit" : "Before Delete")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
             }
         }
     }

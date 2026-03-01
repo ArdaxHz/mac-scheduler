@@ -16,8 +16,18 @@ struct MacSchedulerApp: App {
         WindowGroup {
             MainView()
                 .environmentObject(taskListViewModel)
+                .onAppear {
+                    let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+                    AppLogger.shared.info("App launched — v\(version)")
+                    let retentionDays = UserDefaults.standard.integer(forKey: "logRetentionDays")
+                    AppLogger.shared.pruneOldLogs(retentionDays: retentionDays > 0 ? retentionDays : 30)
+                }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                    Task { await TaskHistoryService.shared.flush() }
+                    AppLogger.shared.info("App terminating")
+                    Task {
+                        await TaskHistoryService.shared.flush()
+                        await TaskVersionService.shared.flush()
+                    }
                 }
         }
         .commands {

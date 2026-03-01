@@ -157,6 +157,16 @@ struct SettingsView: View {
                         label: "Execution History",
                         path: "~/Library/Application Support/MacScheduler/history.json"
                     )
+
+                    LocationRow(
+                        label: "Version History",
+                        path: "~/Library/Application Support/MacScheduler/Snapshots/"
+                    )
+
+                    LocationRow(
+                        label: "App Logs",
+                        path: "~/Library/Logs/MacScheduler/"
+                    )
                 }
             }
         }
@@ -349,6 +359,13 @@ struct SettingsView: View {
                     }
                 }
                 .help("Delete all task execution history permanently")
+
+                Button("Clear Version History", role: .destructive) {
+                    Task {
+                        await TaskVersionService.shared.purgeAllSnapshots()
+                    }
+                }
+                .help("Delete all task version history snapshots permanently")
 
                 Button("Reset App", role: .destructive) {
                     showResetConfirmation = true

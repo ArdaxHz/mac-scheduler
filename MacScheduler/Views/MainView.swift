@@ -15,6 +15,7 @@ struct MainView: View {
     enum NavigationItem: Hashable {
         case allTasks
         case history
+        case trash
     }
 
     enum EditorSheet: Identifiable {
@@ -168,7 +169,7 @@ struct MainView: View {
                 taskToDelete = nil
             }
         } message: {
-            Text("Are you sure you want to delete \"\(taskToDelete?.name ?? "this task")\"? This cannot be undone.")
+            Text("Are you sure you want to delete \"\(taskToDelete?.name ?? "this task")\"? The task configuration will be saved to Trash for recovery.")
         }
         .sheet(isPresented: $showDeleteNameConfirmation) {
             DeleteConfirmationSheet(
@@ -198,7 +199,7 @@ struct MainView: View {
                 taskToEdit = nil
             }
         } message: {
-            Text("Editing \"\(taskToEdit?.name ?? "this task")\" will overwrite its current configuration. This cannot be undone.")
+            Text("Editing \"\(taskToEdit?.name ?? "this task")\" will overwrite its current configuration. The current version will be saved to version history.")
         }
         .alert("Error", isPresented: $viewModel.showError) {
             Button("OK", role: .cancel) {}
@@ -220,6 +221,8 @@ struct MainView: View {
             }
         }
         .task {
+            await viewModel.discoverAllTasks()
+
             guard autoCheckUpdates else { return }
             if let release = await UpdateService.shared.checkForUpdate() {
                 availableUpdate = release
@@ -239,6 +242,8 @@ struct MainView: View {
             Section("Activity") {
                 Label("History", systemImage: "clock.arrow.circlepath")
                     .tag(NavigationItem.history)
+                Label("Trash", systemImage: "trash")
+                    .tag(NavigationItem.trash)
             }
 
             Section("Status") {
@@ -298,6 +303,8 @@ struct MainView: View {
             )
         case .history:
             HistoryView()
+        case .trash:
+            TrashView()
         }
     }
 

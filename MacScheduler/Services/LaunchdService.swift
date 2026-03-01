@@ -490,8 +490,13 @@ class LaunchdService: SchedulerService {
     }
 
     private func parsePlist(at url: URL, isUserWritable: Bool = true) -> ScheduledTask? {
-        guard let data = try? Data(contentsOf: url),
-              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return parsePlistData(data, isUserWritable: isUserWritable)
+    }
+
+    /// Parse raw plist data into a ScheduledTask. Used by parsePlist(at:) and for revert-from-snapshot.
+    func parsePlistData(_ data: Data, isUserWritable: Bool = true) -> ScheduledTask? {
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
             return nil
         }
 

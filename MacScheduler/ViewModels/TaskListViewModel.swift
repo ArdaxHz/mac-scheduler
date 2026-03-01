@@ -45,6 +45,7 @@ class TaskListViewModel: ObservableObject {
     }
 
     private let historyService = TaskHistoryService.shared
+    private let versionService = TaskVersionService.shared
 
     var filteredTasks: [ScheduledTask] {
         var result = tasks
@@ -102,31 +103,36 @@ class TaskListViewModel: ObservableObject {
 
 
     init() {
-        Task {
-            await discoverAllTasks()
-        }
+        // Discovery is triggered by the view via .task { } modifier
+        // to ensure SwiftUI has subscribed to @Published before data loads.
     }
 
     /// Discover all tasks from live LaunchAgents and cron files.
     func discoverAllTasks() async {
         isLoading = true
         defer { isLoading = false }
+        let log = AppLogger.shared
 
         do {
             let launchdService = LaunchdService.shared
             let cronService = CronService.shared
 
+            log.info("Starting task discovery")
             // Fetch launchd + cron + docker tasks in parallel
             async let launchdResult = launchdService.discoverTasks()
             async let cronResult = cronService.discoverTasks()
             let (launchdTasks, cronTasks) = try await (launchdResult, cronResult)
+            log.info("Discovered \(launchdTasks.count) launchd tasks, \(cronTasks.count) cron tasks")
 
             // Docker discovery is non-blocking — failure should not affect other backends
             var dockerTasks: [ScheduledTask] = []
             do {
                 dockerTasks = try await DockerService.shared.discoverTasks()
+                if !dockerTasks.isEmpty {
+                    log.info("Discovered \(dockerTasks.count) Docker containers")
+                }
             } catch {
-                // Silently ignore Docker errors (Docker may not be installed)
+                log.debug("Docker discovery skipped: \(error.localizedDescription)")
             }
 
             // VM discovery — each backend is non-blocking, failures silently ignored
@@ -265,6 +271,7 @@ class TaskListViewModel: ObservableObject {
             // Set Docker offline flag and tasks together so the banner and
             // cached containers appear in the same render pass.
             isDockerOffline = !DockerService.shared.isDockerOnline
+            log.info("Total tasks loaded: \(allTasks.count)")
             tasks = allTasks
 
             // Update selected task if it still exists
@@ -275,6 +282,7 @@ class TaskListViewModel: ObservableObject {
                 selectedTask = nil
             }
         } catch {
+            log.error("Task discovery failed: \(error.localizedDescription)")
             showError(message: "Failed to discover tasks: \(error.localizedDescription)")
         }
     }
@@ -282,6 +290,7 @@ class TaskListViewModel: ObservableObject {
     func addTask(_ task: ScheduledTask) async {
         isLoading = true
         defer { isLoading = false }
+        AppLogger.shared.info("Adding task: \(task.launchdLabel) (backend: \(task.backend.rawValue))")
 
         do {
             if task.backend == .docker {
@@ -313,10 +322,31 @@ class TaskListViewModel: ObservableObject {
     func updateTask(_ task: ScheduledTask) async {
         isLoading = true
         defer { isLoading = false }
+        AppLogger.shared.info("Updating task: \(task.launchdLabel)")
 
         guard let oldTask = tasks.first(where: { $0.id == task.id }) else {
             showError(message: "Task not found")
             return
+        }
+
+        // Snapshot before edit — read content synchronously for launchd (fire-and-forget),
+        // fall back to async for cron (must complete before uninstall erases cron entry)
+        if let snapshotContent = readTaskContent(oldTask) {
+            let label = oldTask.launchdLabel
+            let name = oldTask.name
+            let backend = oldTask.backend.rawValue
+            let newLabel = task.launchdLabel != oldTask.launchdLabel ? task.launchdLabel : nil
+            Task {
+                await versionService.saveSnapshotWithContent(
+                    snapshotContent, label: label, name: name,
+                    reason: .beforeEdit, backend: backend, newLabel: newLabel
+                )
+            }
+        } else if oldTask.backend == .cron {
+            await versionService.saveSnapshot(
+                for: oldTask, reason: .beforeEdit,
+                newLabel: task.launchdLabel != oldTask.launchdLabel ? task.launchdLabel : nil
+            )
         }
 
         do {
@@ -395,6 +425,23 @@ class TaskListViewModel: ObservableObject {
     func deleteTask(_ task: ScheduledTask) async {
         isLoading = true
         defer { isLoading = false }
+        AppLogger.shared.info("Deleting task: \(task.launchdLabel)")
+
+        // Snapshot before delete — read content synchronously for launchd,
+        // fall back to async for cron (must complete before uninstall erases cron entry)
+        if let snapshotContent = readTaskContent(task) {
+            let label = task.launchdLabel
+            let name = task.name
+            let backend = task.backend.rawValue
+            Task {
+                await versionService.saveSnapshotWithContent(
+                    snapshotContent, label: label, name: name,
+                    reason: .beforeDelete, backend: backend
+                )
+            }
+        } else if task.backend == .cron {
+            await versionService.saveSnapshot(for: task, reason: .beforeDelete)
+        }
 
         do {
             let service = SchedulerServiceFactory.service(for: task.backend)
@@ -404,7 +451,7 @@ class TaskListViewModel: ObservableObject {
                 selectedTask = nil
             }
 
-            await historyService.clearHistory(for: task.id)
+            // Execution history preserved until permanent delete from trash
 
             // Re-discover to reflect deletion
             await discoverAllTasks()
@@ -540,8 +587,281 @@ class TaskListViewModel: ObservableObject {
         return content
     }
 
+    // MARK: - Version History
+
+    func revertTask(_ task: ScheduledTask, to snapshot: TaskSnapshot) async {
+        isLoading = true
+        defer { isLoading = false }
+        AppLogger.shared.info("Reverting task \(task.launchdLabel) to snapshot from \(snapshot.timestamp)")
+
+        guard let content = await versionService.readSnapshotContent(snapshot) else {
+            showError(message: "Could not read snapshot content")
+            return
+        }
+
+        // Save current version before reverting (fire-and-forget for launchd, blocking for cron)
+        if let currentContent = readTaskContent(task) {
+            let label = task.launchdLabel
+            let name = task.name
+            let backend = task.backend.rawValue
+            Task {
+                await versionService.saveSnapshotWithContent(
+                    currentContent, label: label, name: name,
+                    reason: .beforeEdit, backend: backend
+                )
+            }
+        } else if task.backend == .cron {
+            await versionService.saveSnapshot(for: task, reason: .beforeEdit)
+        }
+
+        do {
+            if snapshot.backend == SchedulerBackend.launchd.rawValue {
+                try await revertLaunchdTask(task, content: content)
+            } else if snapshot.backend == SchedulerBackend.cron.rawValue {
+                try await revertCronTask(task, content: content)
+            }
+
+            await discoverAllTasks()
+            selectedTask = tasks.first { $0.launchdLabel == snapshot.taskLabel }
+        } catch {
+            showError(message: "Revert failed: \(error.localizedDescription)")
+        }
+    }
+
+    func restoreDeletedTask(from snapshot: TaskSnapshot) async {
+        isLoading = true
+        defer { isLoading = false }
+        AppLogger.shared.info("Restoring deleted task \(snapshot.taskLabel) from trash")
+
+        guard let content = await versionService.readSnapshotContent(snapshot) else {
+            showError(message: "Could not read snapshot content")
+            return
+        }
+
+        do {
+            if snapshot.backend == SchedulerBackend.launchd.rawValue {
+                try await restoreLaunchdTask(content: content)
+            } else if snapshot.backend == SchedulerBackend.cron.rawValue {
+                try await restoreCronTask(content: content, label: snapshot.taskLabel)
+            }
+
+            await discoverAllTasks()
+            selectedTask = tasks.first { $0.launchdLabel == snapshot.taskLabel }
+        } catch {
+            showError(message: "Restore failed: \(error.localizedDescription)")
+        }
+    }
+
+    func permanentlyDeleteTask(label: String) async {
+        await versionService.purgeSnapshots(for: label)
+        let taskId = ScheduledTask.uuidFromLabel(label)
+        await historyService.clearHistory(for: taskId)
+    }
+
+    private func revertLaunchdTask(_ task: ScheduledTask, content: String) async throws {
+        // Defense-in-depth: only allow revert for user-writable tasks
+        guard !task.isReadOnly, task.location == .userAgent else {
+            throw SchedulerError.invalidTask("Cannot revert read-only or system tasks")
+        }
+
+        let data = Data(content.utf8)
+
+        // Parse snapshot into a ScheduledTask (validates well-formed plist)
+        guard var parsedTask = LaunchdService.shared.parsePlistData(data) else {
+            throw SchedulerError.invalidTask("Snapshot contains invalid plist data")
+        }
+
+        // Strip dangerous env vars (DYLD_INSERT_LIBRARIES, LD_PRELOAD, BASH_ENV, etc.)
+        parsedTask.action.environmentVariables = parsedTask.action.environmentVariables.filter { key, _ in
+            !PlistGenerator.isDangerousEnvVar(key)
+        }
+
+        // Validate the parsed task (label chars, control chars, calendar bounds, etc.)
+        let validationErrors = parsedTask.validate()
+        if !validationErrors.isEmpty {
+            throw SchedulerError.invalidTask("Snapshot failed validation: \(validationErrors.joined(separator: "; "))")
+        }
+
+        // Re-generate a clean plist via PlistGenerator (applies XML escaping, control char stripping)
+        let cleanPlist = PlistGenerator().generate(for: parsedTask)
+
+        // Unload current task
+        let launchdService = LaunchdService.shared
+        try? await launchdService.disable(task: task)
+
+        // Write clean plist to LaunchAgents
+        let plistURL = URL(fileURLWithPath: task.location.directory).appendingPathComponent(task.plistFileName)
+
+        // Validate the write destination resolves within the LaunchAgents directory
+        let resolvedPath = plistURL.resolvingSymlinksInPath().path
+        let resolvedDir = URL(fileURLWithPath: task.location.directory).resolvingSymlinksInPath().path
+        guard resolvedPath.hasPrefix(resolvedDir + "/") else {
+            throw SchedulerError.invalidTask("Plist path resolves outside LaunchAgents directory")
+        }
+
+        try cleanPlist.write(toFile: plistURL.path, atomically: true, encoding: .utf8)
+
+        // Load the reverted task
+        try await launchdService.enable(task: task)
+    }
+
+    private func revertCronTask(_ task: ScheduledTask, content: String) async throws {
+        let cronService = CronService.shared
+        try await cronService.uninstall(task: task)
+
+        // The snapshot content is "# CronTask:label\ncron-line" — reinstall via raw crontab manipulation
+        try await reinstallCronFromSnapshot(content: content)
+    }
+
+    private func restoreLaunchdTask(content: String) async throws {
+        let data = Data(content.utf8)
+        guard var parsedTask = LaunchdService.shared.parsePlistData(data) else {
+            throw SchedulerError.invalidTask("Snapshot contains invalid plist data")
+        }
+
+        // Strip dangerous env vars (DYLD_INSERT_LIBRARIES, LD_PRELOAD, BASH_ENV, etc.)
+        parsedTask.action.environmentVariables = parsedTask.action.environmentVariables.filter { key, _ in
+            !PlistGenerator.isDangerousEnvVar(key)
+        }
+
+        // Validate the parsed task (label chars, control chars, calendar bounds, etc.)
+        let validationErrors = parsedTask.validate()
+        if !validationErrors.isEmpty {
+            throw SchedulerError.invalidTask("Snapshot failed validation: \(validationErrors.joined(separator: "; "))")
+        }
+
+        // Re-generate a clean plist via PlistGenerator (applies XML escaping, control char stripping)
+        let cleanPlist = PlistGenerator().generate(for: parsedTask)
+
+        let baseDir = TaskLocation.userAgent.directory
+        let plistURL = URL(fileURLWithPath: baseDir)
+            .appendingPathComponent(parsedTask.plistFileName)
+
+        // Validate the write destination resolves within the LaunchAgents directory
+        let resolvedPath = plistURL.resolvingSymlinksInPath().path
+        let resolvedDir = URL(fileURLWithPath: baseDir).resolvingSymlinksInPath().path
+        guard resolvedPath.hasPrefix(resolvedDir + "/") else {
+            throw SchedulerError.invalidTask("Plist path resolves outside LaunchAgents directory")
+        }
+
+        try cleanPlist.write(toFile: plistURL.path, atomically: true, encoding: .utf8)
+        try await LaunchdService.shared.enable(task: parsedTask)
+    }
+
+    private func restoreCronTask(content: String, label: String) async throws {
+        try await reinstallCronFromSnapshot(content: content)
+    }
+
+    /// Append raw cron content (tag + cron line) to crontab.
+    /// Characters allowed in cron tag labels (same as ScheduledTask.labelAllowedCharacters).
+    private static let cronLabelAllowedCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-_"))
+
+    private func reinstallCronFromSnapshot(content: String) async throws {
+        // Reject null bytes in cron content
+        guard !content.contains("\0") else {
+            throw SchedulerError.cronUpdateFailed("Cron content contains null bytes")
+        }
+
+        // Validate cron snapshot format: must be exactly "# CronTask:<label>\n<cron-line>"
+        let snapshotLines = content.components(separatedBy: "\n")
+            .filter { !$0.isEmpty }
+        guard snapshotLines.count == 2,
+              snapshotLines[0].hasPrefix("# CronTask:"),
+              !snapshotLines[1].hasPrefix("#") else {
+            throw SchedulerError.cronUpdateFailed("Invalid cron snapshot format")
+        }
+
+        // Validate the tag label characters match allowlist [a-zA-Z0-9._-]
+        let tagLabel = String(snapshotLines[0].dropFirst("# CronTask:".count))
+        guard !tagLabel.isEmpty,
+              tagLabel.rangeOfCharacter(from: Self.cronLabelAllowedCharacters.inverted) == nil else {
+            throw SchedulerError.cronUpdateFailed("Cron tag label contains invalid characters")
+        }
+
+        // Validate the cron line has at least 6 fields (5 schedule + command)
+        let cronFields = snapshotLines[1].split(separator: " ", maxSplits: 5)
+        guard cronFields.count >= 6 else {
+            throw SchedulerError.cronUpdateFailed("Invalid cron entry: insufficient fields")
+        }
+
+        // Validate the 5 schedule fields are either "*" or numeric (no shell injection)
+        for i in 0..<5 {
+            let field = String(cronFields[i])
+            if field != "*" {
+                // Allow numeric values, ranges (1-5), steps (*/2), lists (1,3,5), and combinations
+                let scheduleAllowed = CharacterSet(charactersIn: "0123456789,/-*")
+                guard field.rangeOfCharacter(from: scheduleAllowed.inverted) == nil else {
+                    throw SchedulerError.cronUpdateFailed("Cron schedule field \(i + 1) contains invalid characters: \(field)")
+                }
+            }
+        }
+
+        // Strip control chars from the command portion (field 6+)
+        let commandPortion = String(cronFields[5])
+        let cleanCommand = String(commandPortion.unicodeScalars.filter { scalar in
+            // Keep tab (0x09), newline (0x0A), CR (0x0D); strip all other control chars
+            if scalar.isASCII && scalar.value < 0x20 {
+                return scalar.value == 0x09 || scalar.value == 0x0A || scalar.value == 0x0D
+            }
+            return true
+        })
+
+        // Reassemble the clean cron line
+        let scheduleFields = cronFields[0..<5].joined(separator: " ")
+        let cleanCronLine = "\(scheduleFields) \(cleanCommand)"
+        let cleanSnapshotLines = [snapshotLines[0], cleanCronLine]
+
+        let shellExecutor = ShellExecutor.shared
+        let currentResult = try await shellExecutor.execute(command: "/usr/bin/crontab", arguments: ["-l"])
+        var lines: [String]
+        if currentResult.exitCode == 0 {
+            lines = currentResult.standardOutput.components(separatedBy: "\n")
+        } else {
+            lines = []
+        }
+
+        // Append validated and cleaned snapshot content
+        lines.append(contentsOf: cleanSnapshotLines)
+
+        let crontabContent = lines.joined(separator: "\n")
+        let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".crontab")
+        let data = Data(crontabContent.utf8)
+        guard FileManager.default.createFile(atPath: tempFile.path, contents: data,
+                                             attributes: [.posixPermissions: 0o600]) else {
+            throw SchedulerError.cronUpdateFailed("Failed to create temp crontab file")
+        }
+        defer { try? FileManager.default.removeItem(at: tempFile) }
+
+        let result = try await shellExecutor.execute(command: "/usr/bin/crontab", arguments: [tempFile.path])
+        if result.exitCode != 0 {
+            throw SchedulerError.cronUpdateFailed(result.standardError)
+        }
+    }
+
+    /// Read the current config content for a task synchronously on the main actor.
+    /// Returns plist content for launchd tasks, nil for others (cron snapshots
+    /// fall back to the async path inside TaskVersionService).
+    /// Bounded to 1 MB to prevent OOM.
+    private static let maxPlistReadSize = 1_048_576
+
+    private func readTaskContent(_ task: ScheduledTask) -> String? {
+        switch task.backend {
+        case .launchd:
+            guard let path = task.plistFilePath,
+                  FileManager.default.fileExists(atPath: path),
+                  let handle = FileHandle(forReadingAtPath: path) else { return nil }
+            defer { handle.closeFile() }
+            let data = handle.readData(ofLength: Self.maxPlistReadSize)
+            return String(data: data, encoding: .utf8)
+        default:
+            return nil
+        }
+    }
+
     private func showError(message: String) {
+        AppLogger.shared.error(message)
         errorMessage = message
         showError = true
     }
+
 }

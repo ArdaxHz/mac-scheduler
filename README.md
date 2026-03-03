@@ -1,120 +1,241 @@
 # Mac Task Scheduler
 
-A native macOS application for creating, viewing, editing, and managing scheduled tasks using launchd and cron backends. Discover and monitor all system and user tasks in one place.
+A native macOS application for managing scheduled tasks. Discover, create, edit, and monitor launchd agents, cron jobs, Docker containers, and virtual machines -- all from one place.
 
 **Author:** [Ardax](https://github.com/ArdaxHz)
+
+## Installation
+
+### From Release (Recommended)
+1. Download the latest `.dmg` from [Releases](https://github.com/ArdaxHz/mac-task-scheduler/releases)
+2. Open the DMG and drag **Mac Task Scheduler** to `/Applications/`
+3. Launch the app
+
+All releases are signed and notarized with Apple Developer ID.
+
+### From Source
+```bash
+git clone https://github.com/ArdaxHz/mac-task-scheduler.git
+cd mac-task-scheduler
+xcodebuild -project MacScheduler.xcodeproj -scheme MacScheduler -configuration Release build
+open build/Release/Mac\ Task\ Scheduler.app
+```
+
+Requires macOS 14.0 (Sonoma) or later and Xcode 15.0+.
+
+---
 
 ## Features
 
 ### Task Discovery
-- Automatically discovers all launchd tasks from:
-  - `~/Library/LaunchAgents/` (user agents)
-  - `/Library/LaunchAgents/` (system agents)
-  - `/Library/LaunchDaemons/` (system daemons)
-  - `/System/Library/LaunchAgents/` (Apple system agents)
-  - `/System/Library/LaunchDaemons/` (Apple system daemons)
-- Discovers cron tasks (both app-created and manually added)
-- Live status from `launchctl`: running, enabled, disabled, or error states
+
+The app automatically discovers all scheduled tasks on your Mac:
+
+| Source | Path | Permissions |
+|--------|------|-------------|
+| User Agents | `~/Library/LaunchAgents/` | Read-Write |
+| System Agents | `/Library/LaunchAgents/` | Read-Only |
+| System Daemons | `/Library/LaunchDaemons/` | Read-Only |
+| Apple System Agents | `/System/Library/LaunchAgents/` | Read-Only |
+| Apple System Daemons | `/System/Library/LaunchDaemons/` | Read-Only |
+| Cron Jobs | User crontab | Read-Write |
+| Docker Containers | Docker CLI | Read-Write |
+| Virtual Machines | Hypervisor CLIs | Read-Only |
 
 ### Task Management
-- Create, edit, and delete scheduled tasks
-- Install tasks as **User Agents**, **System Agents**, or **System Daemons**
-- System-level operations prompt for admin credentials automatically
-- Enable/disable tasks (load/unload from launchd)
-- Run tasks immediately (manual trigger)
-- Specify the user account for system daemons (`UserName` plist key)
+
+- **Create** new launchd or cron tasks with a full configuration form
+- **Edit** existing tasks (a snapshot is saved automatically before each edit)
+- **Delete** tasks (moved to trash for recovery)
+- **Enable/Disable** tasks (load/unload from launchd)
+- **Run Now** to trigger any task immediately
+- **Bulk operations** to load or unload all tasks at once
+- **Restore** deleted tasks from the trash
+- **Revert** to any previous version from the version history
+
+System-level operations (system agents and daemons) prompt for admin credentials automatically.
+
+### Scheduler Backends
+
+#### Editable Backends
+
+**launchd** (Recommended) -- the native macOS scheduler, supports all trigger types and the most configuration options.
+
+**cron** -- traditional Unix scheduler with standard cron expressions and a visual schedule builder.
+
+#### Discovery-Only Backends
+
+**Docker** -- discovers and manages containers from Docker Desktop, OrbStack, Colima, or Rancher Desktop.
+
+**Virtual Machines** -- discovers VMs from Parallels Desktop, VirtualBox, UTM, and VMware Fusion.
 
 ### Trigger Types
 
-#### launchd Backend (Recommended)
-- **Calendar**: Run on specific dates/times or recurring schedules
-- **Interval**: Run every N seconds/minutes/hours/days
-- **At Login**: Run when user logs in
-- **At Startup**: Run when system boots
-- **On Demand**: Manual trigger only
+| Trigger | launchd | cron | Description |
+|---------|:-------:|:----:|-------------|
+| Calendar | x | x | Run on specific dates/times or recurring schedules |
+| Interval | x | | Run every N seconds, minutes, hours, or days |
+| At Login | x | | Run when the user logs in |
+| At Startup | x | | Run when the system boots |
+| On Demand | x | | Manual trigger only |
 
-#### cron Backend
-- Standard cron expressions
-- Visual schedule builder
+Schedule presets are available for common patterns: every minute, hourly, daily, weekly, and monthly.
 
 ### Task Actions
-- Run executables and applications
-- Run shell scripts (inline or from file)
-- Run AppleScript (inline or from file)
-- Built-in script editor for file-based scripts
 
-### Status Monitoring
-- **Running**: Shows uptime duration and process start time
-- **Error**: Shows exit code and when the error occurred
-- **Enabled/Disabled**: Current launchd registration state
-- Run count and failure count from launchctl
+| Action | Description |
+|--------|-------------|
+| Executable | Run any binary or application |
+| Shell Script | Run bash/sh/zsh scripts, inline or from a file |
+| AppleScript | Run AppleScript, inline or from a file |
 
-### Filtering & Search
-- Search by task name, description, or label
-- Filter by status (Enabled, Disabled, Running, Error)
-- Filter by scope (Editable / Read-Only)
-- Filter by trigger type
-- Filter by backend (launchd / cron)
-- Filter by last run status
+Each action supports arguments, a working directory, environment variables, and stdout/stderr redirection.
 
-### Execution History
-- Track all task executions triggered via the app
-- View stdout/stderr output for each run
-- Success/failure status with exit codes
+A built-in **script editor** lets you write and edit scripts directly in the app.
+
+### Task Locations (launchd)
+
+| Location | Runs As | When | Path |
+|----------|---------|------|------|
+| User Agent | Current user | At login | `~/Library/LaunchAgents/` |
+| System Agent | All users | At login | `/Library/LaunchAgents/` |
+| System Daemon | Configurable | At boot | `/Library/LaunchDaemons/` |
+
+---
+
+## Docker Container Management
+
+The app discovers Docker containers and displays:
+
+- Container status, image, ports, volumes, environment variables, and network mode
+- Launch origin (Docker Compose, Boot, Manual, Dockerfile, or Command)
+- Runtime detection (Docker Desktop, OrbStack, Colima, Rancher)
+
+**Container operations:**
+- Create and configure new containers (image, ports, env vars, volumes, restart policy, network, command)
+- Import `.env` files via file picker or drag-and-drop
+- Remove containers with options to cascade volumes and images
+- Docker Compose `down` for Compose-managed projects
+
+**Offline support:** When Docker is unavailable, cached container data is shown with a stale indicator. Actions are disabled until Docker comes back online.
+
+---
+
+## Virtual Machine Discovery
+
+The app discovers VMs from installed hypervisors (read-only):
+
+| Hypervisor | Information Shown |
+|------------|-------------------|
+| Parallels Desktop | Name, state, OS type, CPU, memory |
+| VirtualBox | Name, state, OS type, CPU, memory |
+| UTM | Name, state |
+| VMware Fusion | Name, state |
+
+Discovery is non-blocking -- if a hypervisor isn't installed, it is silently skipped.
+
+---
+
+## Status Monitoring
+
+| State | Indicator | Details |
+|-------|-----------|---------|
+| Running | Green | Uptime duration, process start time |
+| Enabled | Blue | Loaded in launchd, will run on schedule |
+| Disabled | Grey | Not loaded, won't run |
+| Error | Red | Exit code, failure timestamp |
+
+Additional metrics: run count, failure count, last run time, and last exit code.
+
+---
+
+## Execution History
+
+Every task execution triggered via the app is recorded:
+
+- Start and end timestamps
+- Exit code and success/failure status
+- Full stdout/stderr output
 - Execution duration
-- Per-task history with "View All" popup
+- Per-task filtering and "View All" popup
 
-### UI
-- Two-column layout with collapsible, resizable detail panel
-- Task table with sortable columns
-- Context menus for quick actions
-- Auto-update checker (GitHub Releases)
+History is stored at `~/Library/Application Support/MacScheduler/history.json`.
 
-## Requirements
+---
 
-- macOS 14.0 (Sonoma) or later
-- Xcode 15.0+ for building
+## Version History & Trash
 
-## Installation
+### Version History
 
-### From Release
-1. Download the latest `.zip` from [Releases](https://github.com/ArdaxHz/mac-task-scheduler/releases)
-2. Unzip and move `Mac Task Scheduler.app` to `/Applications/`
-3. Launch the app
+Snapshots are saved automatically before every edit and delete. You can browse the full history of changes to any task and revert to any previous version.
 
-### From Source
-1. Clone the repository
-2. Open `MacScheduler.xcodeproj` in Xcode
-3. Build and run (Cmd+R)
+- Up to 50 snapshots per task, 500 total
+- Follows the configured log retention period
+- Stored at `~/Library/Application Support/MacScheduler/Snapshots/`
 
-## Usage
+### Trash
 
-### Creating a Task
+Deleted tasks are moved to the trash instead of being permanently removed. From the trash you can:
 
-1. Click the **+** button or press **Cmd+N**
-2. Enter a task name and optional description
-3. Choose a backend (launchd recommended)
-4. Choose a location:
-   - **User Agent**: Runs as your user at login (`~/Library/LaunchAgents/`)
-   - **System Agent**: Runs for all users at login (`/Library/LaunchAgents/`)
-   - **System Daemon**: Runs at boot (`/Library/LaunchDaemons/`)
-5. Configure the action (Executable, Shell Script, or AppleScript)
-6. Configure the trigger and schedule
-7. Click **Save** (admin password required for system locations)
+- **Restore** a task to reinstall its plist or cron entry
+- **Permanently delete** to remove all snapshots and execution history
+- **Empty trash** to bulk-delete everything
 
-### Managing Tasks
+---
 
-- **Enable/Disable**: Click the toggle or use the context menu
-- **Run Now**: Click the play button to run immediately
-- **Edit**: Double-click or select Edit from context menu
-- **Delete**: Use the context menu or toolbar button
-- **Load/Unload**: Directly control launchd registration
+## Filtering & Search
 
-## Stateless Design
+**Search** across task names, descriptions, and launchd labels.
 
-The app has **no internal database**. All task data is read directly from live LaunchAgent/LaunchDaemon plist files and crontab entries. Tasks created by the app are standard native launchd/cron tasks -- if the app is deleted, all tasks continue to run normally.
+**Filter by:**
+- Backend: launchd, cron, Docker, Parallels, VirtualBox, UTM, VMware
+- Status: Enabled, Disabled, Running, Error (multi-select in the sidebar)
+- Trigger type: Calendar, Interval, At Login, At Startup, On Demand
+- Last run: All, Has Run, Never Run
+- Ownership: All, Editable, Read-Only
+- Location: All, User Agent, System Agent, System Daemon
 
-Custom metadata (task names and descriptions) is stored as `MacSchedulerName` and `MacSchedulerDescription` keys inside plist files (launchd ignores unknown keys).
+Status counts are shown in the sidebar for quick reference.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd + N` | New Task |
+| `Cmd + R` | Refresh All |
+| `Cmd + I` | Toggle Detail Panel |
+| `Cmd + ,` | Settings |
+| `Cmd + E` | Edit Selected Task |
+| `Shift + Cmd + R` | Run Selected Task Now |
+| `Shift + Cmd + T` | Toggle Enable/Disable |
+| `Cmd + Delete` | Delete Selected Task |
+| `Cmd + ?` | Keyboard Shortcuts |
+
+---
+
+## Settings
+
+### General
+- **Default backend** -- choose launchd or cron for new tasks
+- **Notifications** -- toggle task completion notifications
+
+### Storage
+- **Scripts directory** -- where file-based scripts are saved (default: `~/Library/Scripts/`)
+- **Data locations** -- reference table of all app data paths
+
+### Advanced
+- **Log retention** -- 7, 14, 30, 90 days, or forever
+- **Clear history** -- delete all execution history
+- **Clear version history** -- purge all snapshots
+- **Reset app** -- delete all app-created tasks and data
+
+### About
+- Version info and links
+- Auto-update checker (compares against GitHub Releases)
+
+---
 
 ## Data Locations
 
@@ -124,27 +245,72 @@ Custom metadata (task names and descriptions) is stored as `MacSchedulerName` an
 | System Launch Agents | `/Library/LaunchAgents/` |
 | System Daemons | `/Library/LaunchDaemons/` |
 | Execution History | `~/Library/Application Support/MacScheduler/history.json` |
+| Version Snapshots | `~/Library/Application Support/MacScheduler/Snapshots/` |
+| Docker Cache | `~/Library/Application Support/MacScheduler/docker-cache.json` |
+| App Logs | `~/Library/Logs/MacScheduler/` |
 | Scripts | `~/Library/Scripts/` (configurable) |
+
+---
+
+## Stateless Design
+
+The app has **no internal database**. All task data is read directly from live plist files and crontab entries. Tasks created by the app are standard native launchd/cron tasks -- if the app is deleted, all scheduled tasks continue to run normally.
+
+Custom metadata (task names and descriptions) is stored as `MacSchedulerName` and `MacSchedulerDescription` keys inside plist files. launchd ignores unknown keys, so this has no effect on task execution.
+
+---
 
 ## Architecture
 
 ```
 MacScheduler/
-├── App/                    # App entry point
-├── Models/                 # Data models
-│   ├── ScheduledTask       # Core task model with TaskLocation
-│   ├── TaskTrigger         # Trigger configuration
-│   ├── TaskAction          # Action configuration
-│   └── TaskStatus          # Execution status (state, exit codes, uptime)
-├── Services/               # Backend services
-│   ├── SchedulerService    # Protocol for backends
-│   ├── LaunchdService      # launchd integration (with elevated privilege support)
-│   ├── CronService         # cron integration
-│   └── TaskHistoryService  # History tracking (actor-based)
-├── Views/                  # SwiftUI views
-├── ViewModels/             # View state management
-└── Utilities/              # PlistGenerator, ShellExecutor, etc.
+├── App/                          # App entry point
+├── Models/                       # Data models
+│   ├── ScheduledTask             # Core task model
+│   ├── TaskTrigger               # Trigger configuration
+│   ├── TaskAction                # Action configuration
+│   ├── TaskStatus                # Runtime status
+│   ├── TaskSnapshot              # Version history snapshot
+│   ├── ContainerInfo             # Docker container metadata
+│   └── VMInfo                    # Virtual machine metadata
+├── Services/                     # Backend implementations
+│   ├── SchedulerService          # Protocol (Strategy pattern)
+│   ├── LaunchdService            # launchd plist management
+│   ├── CronService               # crontab editing
+│   ├── DockerService             # Docker CLI integration
+│   ├── DockerCacheService        # Offline container caching
+│   ├── ParallelsService          # Parallels VM discovery
+│   ├── VirtualBoxService         # VirtualBox VM discovery
+│   ├── UTMService                # UTM VM discovery
+│   ├── VMwareFusionService       # VMware Fusion VM discovery
+│   ├── TaskHistoryService        # Execution history (actor)
+│   ├── TaskVersionService        # Snapshot management (actor)
+│   └── UpdateService             # GitHub release checker
+├── ViewModels/                   # MVVM state management
+│   ├── TaskListViewModel         # Main task list
+│   ├── TaskEditorViewModel       # Task creation/editing form
+│   └── DockerEditorViewModel     # Docker container form
+├── Views/                        # SwiftUI views
+│   ├── MainView                  # Two-column layout with sidebar
+│   ├── TaskListView              # Sortable task table
+│   ├── TaskDetailView            # Task details panel
+│   ├── TaskEditorView            # Task creation/editing
+│   ├── DockerEditorView          # Docker container editor
+│   ├── HistoryView               # Execution history
+│   ├── TrashView                 # Deleted tasks
+│   ├── VersionHistorySheet       # Version history browser
+│   ├── SettingsView              # Preferences
+│   └── ...                       # Trigger editor, script editor, etc.
+└── Utilities/                    # Helpers
+    ├── PlistGenerator            # XML plist generation
+    ├── ShellExecutor             # Process execution (actor)
+    ├── CronParser                # Cron expression parsing
+    └── AppLogger                 # File-based daily logging
 ```
+
+Zero external dependencies -- pure Swift/SwiftUI with Foundation.
+
+---
 
 ## License
 

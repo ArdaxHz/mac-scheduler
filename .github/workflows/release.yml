@@ -14,10 +14,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Select Xcode
         run: |
-          # Use the latest available Xcode for macOS 26 SDK / Liquid Glass support
           ls /Applications/ | grep Xcode | sort -V | tail -5
           XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
           echo "Using: $XCODE"
@@ -78,7 +79,6 @@ jobs:
 
           echo "Verifying signature..."
           codesign --verify --verbose=2 "$RUNNER_TEMP/export/Mac Task Scheduler.app"
-          spctl --assess --type execute --verbose=2 "$RUNNER_TEMP/export/Mac Task Scheduler.app" || echo "Note: spctl may fail in CI without notarization"
 
       - name: Create DMG
         run: |
@@ -89,6 +89,48 @@ jobs:
             -ov -format UDZO \
             "$RUNNER_TEMP/MacTaskScheduler.dmg"
 
+      - name: Notarize DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Submitting for notarization..."
+          xcrun notarytool submit "$RUNNER_TEMP/MacTaskScheduler.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple "$RUNNER_TEMP/MacTaskScheduler.dmg"
+
+          echo "Verifying staple..."
+          xcrun stapler validate "$RUNNER_TEMP/MacTaskScheduler.dmg"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
+
+          {
+            echo "**Version:** ${{ github.ref_name }}"
+            echo ""
+            echo "**Install:** Download the DMG, open it, and drag the app to your Applications folder."
+            echo "Signed and notarized by Apple Developer ID."
+            echo ""
+            echo "## Changes"
+            echo ""
+            if [ -n "$PREV_TAG" ]; then
+              git log --pretty=format:"- %s" "$PREV_TAG".."${{ github.ref_name }}"
+              echo ""
+              echo ""
+              echo "**Full diff:** [\`$PREV_TAG\`..\`${{ github.ref_name }}\`](https://github.com/${{ github.repository }}/compare/$PREV_TAG...${{ github.ref_name }})"
+            else
+              git log --pretty=format:"- %s" "${{ github.ref_name }}" | head -20
+            fi
+          } > $RUNNER_TEMP/release-body.md
+
       - name: Cleanup keychain
         if: always()
         run: security delete-keychain $RUNNER_TEMP/build.keychain 2>/dev/null || true
@@ -98,11 +140,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: "Mac Task Scheduler ${{ github.ref_name }}"
-          body: |
-            **Version:** ${{ github.ref_name }}
-
-            **Install:** Download the DMG, open it, and drag the app to your Applications folder.
-            **Signed with:** Developer ID Application (Ardax H)
+          body_path: ${{ runner.temp }}/release-body.md
           files: |
             ${{ runner.temp }}/MacTaskScheduler.dmg
           make_latest: true

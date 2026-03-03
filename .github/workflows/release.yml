@@ -2,7 +2,8 @@ name: Build & Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
@@ -23,52 +24,34 @@ jobs:
           sudo xcode-select -s "$XCODE"
           xcodebuild -version
 
-      - name: Create signing certificate
+      - name: Import signing certificate
+        env:
+          DEVELOPER_ID_CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
         run: |
-          cat > $RUNNER_TEMP/cert.conf << 'CERTEOF'
-          [ req ]
-          default_bits       = 2048
-          distinguished_name = req_dn
-          x509_extensions    = codesign_ext
-          prompt             = no
-          [ req_dn ]
-          CN = Mac Task Scheduler Dev
-          [ codesign_ext ]
-          keyUsage               = critical, digitalSignature
-          extendedKeyUsage       = critical, codeSigning
-          basicConstraints       = critical, CA:false
-          CERTEOF
+          CERT_P12=$RUNNER_TEMP/cert.p12
+          KEYCHAIN=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASS="ci-build-$(date +%s)"
 
-          openssl req -x509 -newkey rsa:2048 \
-            -keyout $RUNNER_TEMP/key.pem \
-            -out $RUNNER_TEMP/cert.pem \
-            -days 365 -nodes \
-            -config $RUNNER_TEMP/cert.conf
+          echo "$DEVELOPER_ID_CERT_BASE64" | base64 --decode > "$CERT_P12"
 
-          openssl pkcs12 -export \
-            -out $RUNNER_TEMP/cert.p12 \
-            -inkey $RUNNER_TEMP/key.pem \
-            -in $RUNNER_TEMP/cert.pem \
-            -passout pass:buildcert \
-            -legacy 2>/dev/null || \
-          openssl pkcs12 -export \
-            -out $RUNNER_TEMP/cert.p12 \
-            -inkey $RUNNER_TEMP/key.pem \
-            -in $RUNNER_TEMP/cert.pem \
-            -passout pass:buildcert
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
 
-          security create-keychain -p "" $RUNNER_TEMP/build.keychain
-          security default-keychain -s $RUNNER_TEMP/build.keychain
-          security unlock-keychain -p "" $RUNNER_TEMP/build.keychain
-          security set-keychain-settings -lut 3600 $RUNNER_TEMP/build.keychain
-
-          security import $RUNNER_TEMP/cert.p12 \
-            -k $RUNNER_TEMP/build.keychain \
-            -P buildcert \
+          security import "$CERT_P12" \
+            -k "$KEYCHAIN" \
+            -P "$DEVELOPER_ID_CERT_PASSWORD" \
             -T /usr/bin/codesign \
             -T /usr/bin/security
           security set-key-partition-list -S apple-tool:,apple: -s \
-            -k "" $RUNNER_TEMP/build.keychain
+            -k "$KEYCHAIN_PASS" "$KEYCHAIN"
+
+          echo "Installed identities:"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+          rm -f "$CERT_P12"
 
       - name: Build archive
         run: |
@@ -78,21 +61,24 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=macOS' \
             -archivePath $RUNNER_TEMP/MacScheduler.xcarchive \
-            CODE_SIGN_IDENTITY="Mac Task Scheduler Dev" \
+            CODE_SIGN_IDENTITY="Developer ID Application: Ardax H (Z8QHFH52KV)" \
             CODE_SIGN_STYLE=Manual \
-            OTHER_CODE_SIGN_FLAGS="--timestamp=none"
+            DEVELOPMENT_TEAM=Z8QHFH52KV
 
       - name: Export and sign app
         run: |
           mkdir -p $RUNNER_TEMP/export
           cp -R $RUNNER_TEMP/MacScheduler.xcarchive/Products/Applications/*.app $RUNNER_TEMP/export/
 
-          codesign --force --deep --sign "Mac Task Scheduler Dev" \
+          codesign --force --deep \
+            --sign "Developer ID Application: Ardax H (Z8QHFH52KV)" \
             --entitlements MacScheduler/MacScheduler.entitlements \
-            --timestamp=none \
+            --options runtime \
             "$RUNNER_TEMP/export/Mac Task Scheduler.app"
 
-          codesign --verify --verbose "$RUNNER_TEMP/export/Mac Task Scheduler.app"
+          echo "Verifying signature..."
+          codesign --verify --verbose=2 "$RUNNER_TEMP/export/Mac Task Scheduler.app"
+          spctl --assess --type execute --verbose=2 "$RUNNER_TEMP/export/Mac Task Scheduler.app" || echo "Note: spctl may fail in CI without notarization"
 
       - name: Create DMG
         run: |
@@ -103,15 +89,6 @@ jobs:
             -ov -format UDZO \
             "$RUNNER_TEMP/MacTaskScheduler.dmg"
 
-      - name: Generate version tag
-        id: version
-        run: |
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          APP_VERSION=$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' MacScheduler.xcodeproj/project.pbxproj | head -1 | tr -d '[:space:]"')
-          TAG="v${APP_VERSION}-${SHORT_SHA}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "app_version=$APP_VERSION" >> $GITHUB_OUTPUT
-
       - name: Cleanup keychain
         if: always()
         run: security delete-keychain $RUNNER_TEMP/build.keychain 2>/dev/null || true
@@ -119,18 +96,13 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: "Mac Task Scheduler v${{ steps.version.outputs.app_version }}"
+          tag_name: ${{ github.ref_name }}
+          name: "Mac Task Scheduler ${{ github.ref_name }}"
           body: |
-            **Version:** ${{ steps.version.outputs.app_version }}
-            **Commit:** ${{ github.event.head_commit.message }}
+            **Version:** ${{ github.ref_name }}
 
             **Install:** Download the DMG, open it, and drag the app to your Applications folder.
-
-            **Note:** If macOS shows a security warning, right-click the app and select "Open", or run:
-            ```
-            xattr -cr "/Applications/Mac Task Scheduler.app"
-            ```
+            **Signed with:** Developer ID Application (Ardax H)
           files: |
             ${{ runner.temp }}/MacTaskScheduler.dmg
           make_latest: true

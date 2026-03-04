@@ -109,16 +109,38 @@ struct DockerEditorView: View {
 
     private var portMappingsSection: some View {
         Section {
+            if !editorViewModel.portMappings.isEmpty {
+                HStack(spacing: 8) {
+                    Text("Host")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 160, alignment: .leading)
+                    Text("")
+                        .frame(width: 8)
+                    Text("Container")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 160, alignment: .leading)
+                    Text("")
+                        .frame(width: 8)
+                    Text("Protocol")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .frame(width: 70, alignment: .leading)
+                    Spacer()
+                }
+            }
+
             ForEach($editorViewModel.portMappings) { $mapping in
                 HStack(spacing: 8) {
-                    TextField("Host", text: $mapping.hostPort)
-                        .frame(minWidth: 60, maxWidth: 120)
+                    TextField("", text: $mapping.hostPort)
+                        .frame(width: 160)
                         .textFieldStyle(.roundedBorder)
                         .help("Host port (1-65535)")
                     Text(":")
                         .foregroundColor(.secondary)
-                    TextField("Container", text: $mapping.containerPort)
-                        .frame(minWidth: 60, maxWidth: 120)
+                    TextField("", text: $mapping.containerPort)
+                        .frame(width: 160)
                         .textFieldStyle(.roundedBorder)
                         .help("Container port (1-65535)")
                     Text("/")
@@ -157,30 +179,30 @@ struct DockerEditorView: View {
         Section {
             if !editorViewModel.envVars.isEmpty {
                 HStack(spacing: 8) {
-                    Text("Key")
+                    Text("Key (e.g. NODE_ENV)")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .frame(minWidth: 100, alignment: .leading)
+                        .frame(width: 160, alignment: .leading)
                     Text("")
                         .frame(width: 10)
-                    Text("Value")
+                    Text("Value (e.g. production)")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                        .frame(minWidth: 100, alignment: .leading)
+                        .frame(width: 160, alignment: .leading)
                     Spacer()
                 }
             }
 
             ForEach($editorViewModel.envVars) { $env in
                 HStack(spacing: 8) {
-                    TextField("e.g. NODE_ENV", text: $env.key)
-                        .frame(minWidth: 100)
+                    TextField("", text: $env.key)
+                        .frame(width: 160)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
                     Text("=")
                         .foregroundColor(.secondary)
-                    TextField("e.g. production", text: $env.value)
-                        .frame(minWidth: 100)
+                    TextField("", text: $env.value)
+                        .frame(width: 160)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(.body, design: .monospaced))
 

@@ -77,7 +77,7 @@ actor DockerCacheService {
 
     // MARK: - Persistence
 
-    private var cacheFileURL: URL? {
+    private nonisolated var cacheFileURL: URL? {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
@@ -86,7 +86,7 @@ actor DockerCacheService {
         return dir.appendingPathComponent("docker-cache.json")
     }
 
-    private func loadFromDisk() -> [CachedContainer] {
+    private nonisolated func loadFromDisk() -> [CachedContainer] {
         guard let url = cacheFileURL,
               FileManager.default.fileExists(atPath: url.path) else { return [] }
         do {

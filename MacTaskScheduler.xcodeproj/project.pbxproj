@@ -51,7 +51,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A1000000231A0001 /* MacScheduler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacScheduler.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000000231A0001 /* MacTaskScheduler.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MacTaskScheduler.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002231A0001 /* MacSchedulerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacSchedulerApp.swift; sourceTree = "<group>"; };
 		A1000004231A0001 /* ScheduledTask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledTask.swift; sourceTree = "<group>"; };
 		A1000006231A0001 /* TaskTrigger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskTrigger.swift; sourceTree = "<group>"; };
@@ -76,7 +76,7 @@
 		A1000028231A0001 /* TaskListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskListViewModel.swift; sourceTree = "<group>"; };
 		A100002A231A0001 /* TaskEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorViewModel.swift; sourceTree = "<group>"; };
 		A100002C231A0001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A100002D231A0001 /* MacScheduler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacScheduler.entitlements; sourceTree = "<group>"; };
+		A100002D231A0001 /* MacTaskScheduler.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MacTaskScheduler.entitlements; sourceTree = "<group>"; };
 		A100003C231A0001 /* ContainerInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerInfo.swift; sourceTree = "<group>"; };
 		A100003E231A0001 /* DockerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerService.swift; sourceTree = "<group>"; };
 		A1000040231A0001 /* DockerEditorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerEditorViewModel.swift; sourceTree = "<group>"; };
@@ -110,12 +110,12 @@
 		A10000E0231A0001 = {
 			isa = PBXGroup;
 			children = (
-				A10000E1231A0001 /* MacScheduler */,
+				A10000E1231A0001 /* MacTaskScheduler */,
 				A10000E2231A0001 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A10000E1231A0001 /* MacScheduler */ = {
+		A10000E1231A0001 /* MacTaskScheduler */ = {
 			isa = PBXGroup;
 			children = (
 				A10000E3231A0001 /* App */,
@@ -125,15 +125,15 @@
 				A10000E7231A0001 /* ViewModels */,
 				A10000E8231A0001 /* Utilities */,
 				A100002C231A0001 /* Assets.xcassets */,
-				A100002D231A0001 /* MacScheduler.entitlements */,
+				A100002D231A0001 /* MacTaskScheduler.entitlements */,
 			);
-			path = MacScheduler;
+			path = MacTaskScheduler;
 			sourceTree = "<group>";
 		};
 		A10000E2231A0001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A1000000231A0001 /* MacScheduler.app */,
+				A1000000231A0001 /* MacTaskScheduler.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -223,9 +223,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000FF231A0001 /* MacScheduler */ = {
+		A10000FF231A0001 /* MacTaskScheduler */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000100231A0001 /* Build configuration list for PBXNativeTarget "MacScheduler" */;
+			buildConfigurationList = A1000100231A0001 /* Build configuration list for PBXNativeTarget "MacTaskScheduler" */;
 			buildPhases = (
 				A10000EF231A0001 /* Sources */,
 				A10000F0231A0001 /* Frameworks */,
@@ -235,9 +235,9 @@
 			);
 			dependencies = (
 			);
-			name = MacScheduler;
-			productName = MacScheduler;
-			productReference = A1000000231A0001 /* MacScheduler.app */;
+			name = MacTaskScheduler;
+			productName = MacTaskScheduler;
+			productReference = A1000000231A0001 /* MacTaskScheduler.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -255,7 +255,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A10000EA231A0001 /* Build configuration list for PBXProject "MacScheduler" */;
+			buildConfigurationList = A10000EA231A0001 /* Build configuration list for PBXProject "MacTaskScheduler" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -268,7 +268,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A10000FF231A0001 /* MacScheduler */,
+				A10000FF231A0001 /* MacTaskScheduler */,
 			);
 		};
 /* End PBXProject section */
@@ -458,9 +458,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MacScheduler/MacScheduler.entitlements;
-				CODE_SIGN_IDENTITY = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_ENTITLEMENTS = MacTaskScheduler/MacTaskScheduler.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Z8QHFH52KV;
@@ -472,7 +472,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.7.0-alpha";
+				MARKETING_VERSION = 2026.03.04;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -485,7 +485,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = MacScheduler/MacScheduler.entitlements;
+				CODE_SIGN_ENTITLEMENTS = MacTaskScheduler/MacTaskScheduler.entitlements;
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -499,7 +499,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = "0.7.0-alpha";
+				MARKETING_VERSION = 2026.03.04;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mactaskscheduler.app;
 				PRODUCT_NAME = "Mac Task Scheduler";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -510,7 +510,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A10000EA231A0001 /* Build configuration list for PBXProject "MacScheduler" */ = {
+		A10000EA231A0001 /* Build configuration list for PBXProject "MacTaskScheduler" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000EB231A0001 /* Debug */,
@@ -519,7 +519,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000100231A0001 /* Build configuration list for PBXNativeTarget "MacScheduler" */ = {
+		A1000100231A0001 /* Build configuration list for PBXNativeTarget "MacTaskScheduler" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A10000ED231A0001 /* Debug */,

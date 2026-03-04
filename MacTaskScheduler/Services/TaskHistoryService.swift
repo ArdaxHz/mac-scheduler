@@ -110,7 +110,7 @@ actor TaskHistoryService {
         // Enforce total entry cap to bound memory
         let totalCount = history.values.reduce(0) { $0 + $1.count }
         if totalCount > maxTotalEntries {
-            var all = history.values.flatMap { $0 }.sorted { $0.startTime > $1.startTime }
+            let all = history.values.flatMap { $0 }.sorted { $0.startTime > $1.startTime }
             let keep = Set(all.prefix(maxTotalEntries).map { $0.id })
             for taskId in history.keys {
                 history[taskId] = history[taskId]?.filter { keep.contains($0.id) }

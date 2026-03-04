@@ -17,8 +17,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A10000FF231A0001"
                BuildableName = "Mac Task Scheduler.app"
-               BlueprintName = "MacScheduler"
-               ReferencedContainer = "container:MacScheduler.xcodeproj">
+               BlueprintName = "MacTaskScheduler"
+               ReferencedContainer = "container:MacTaskScheduler.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,8 +46,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A10000FF231A0001"
             BuildableName = "Mac Task Scheduler.app"
-            BlueprintName = "MacScheduler"
-            ReferencedContainer = "container:MacScheduler.xcodeproj">
+            BlueprintName = "MacTaskScheduler"
+            ReferencedContainer = "container:MacTaskScheduler.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>

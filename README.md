@@ -17,7 +17,7 @@ All releases are signed and notarized with Apple Developer ID.
 ```bash
 git clone https://github.com/ArdaxHz/mac-task-scheduler.git
 cd mac-task-scheduler
-xcodebuild -project MacScheduler.xcodeproj -scheme MacScheduler -configuration Release build
+xcodebuild -project MacTaskScheduler.xcodeproj -scheme MacTaskScheduler -configuration Release build
 open build/Release/Mac\ Task\ Scheduler.app
 ```
 

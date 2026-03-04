@@ -90,7 +90,7 @@ jobs:
             "$RUNNER_TEMP/MacTaskScheduler.dmg"
 
       - name: Notarize DMG
-        timeout-minutes: 20
+        timeout-minutes: 45
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -114,7 +114,7 @@ jobs:
           echo "Submission ID: $SUBMISSION_ID"
           echo "Waiting for notarization to complete..."
 
-          for i in $(seq 1 30); do
+          for i in $(seq 1 80); do
             sleep 30
             STATUS_OUTPUT=$(xcrun notarytool info "$SUBMISSION_ID" \
               --apple-id "$APPLE_ID" \

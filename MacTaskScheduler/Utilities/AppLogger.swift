@@ -3,7 +3,7 @@
 //  MacScheduler
 //
 //  Lightweight file-based logger with daily log rotation.
-//  Writes to ~/Library/Logs/MacScheduler/MacScheduler-YYYY-MM-DD.log
+//  Writes to ~/Library/Logs/MacTaskScheduler/MacScheduler-YYYY-MM-DD.log
 //
 
 import Foundation
@@ -23,12 +23,12 @@ final class AppLogger: @unchecked Sendable {
         guard let libraryDir = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first else {
             return nil
         }
-        return libraryDir.appendingPathComponent("Logs/MacScheduler")
+        return libraryDir.appendingPathComponent("Logs/MacTaskScheduler")
     }
 
     /// Resolved logs directory path for display in Settings.
     var logsDirectoryPath: String {
-        logsDirectory?.path ?? "~/Library/Logs/MacScheduler"
+        logsDirectory?.path ?? "~/Library/Logs/MacTaskScheduler"
     }
 
     private init() {
@@ -52,7 +52,7 @@ final class AppLogger: @unchecked Sendable {
     private func logFileURL(for date: Date = Date()) -> URL? {
         guard let dir = logsDirectory else { return nil }
         let dateString = fileDateFormatter.string(from: date)
-        return dir.appendingPathComponent("MacScheduler-\(dateString).log")
+        return dir.appendingPathComponent("MacTaskScheduler-\(dateString).log")
     }
 
     // MARK: - Public API

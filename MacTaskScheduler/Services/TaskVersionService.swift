@@ -22,7 +22,7 @@ actor TaskVersionService {
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return nil
         }
-        return appSupport.appendingPathComponent("MacScheduler")
+        return appSupport.appendingPathComponent("MacTaskScheduler")
     }
 
     private var indexFileURL: URL? {

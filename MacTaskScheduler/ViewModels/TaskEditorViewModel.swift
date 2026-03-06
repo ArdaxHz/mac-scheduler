@@ -196,7 +196,7 @@ class TaskEditorViewModel: ObservableObject {
     /// Default log directory for task output.
     static var defaultLogDirectory: String {
         FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/MacScheduler").path
+            .appendingPathComponent("Library/Logs/MacTaskScheduler").path
     }
 
     /// Allowlist-sanitize a string for use in filenames: only [a-zA-Z0-9._-] pass through.

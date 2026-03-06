@@ -374,7 +374,7 @@ struct TaskEditorView: View {
                     Text("Use Default")
                         .font(.caption)
                 }
-                .help("Set to ~/Library/Logs/MacScheduler/<task-label>.stdout.log")
+                .help("Set to ~/Library/Logs/MacTaskScheduler/<task-label>.stdout.log")
                 Button {
                     filePickerField = .standardOut
                     showFilePicker = true
@@ -395,7 +395,7 @@ struct TaskEditorView: View {
                     Text("Use Default")
                         .font(.caption)
                 }
-                .help("Set to ~/Library/Logs/MacScheduler/<task-label>.stderr.log")
+                .help("Set to ~/Library/Logs/MacTaskScheduler/<task-label>.stderr.log")
                 Button {
                     filePickerField = .standardError
                     showFilePicker = true

@@ -60,8 +60,18 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will delete all tasks, execution history, and remove all MacScheduler LaunchAgent plists. This cannot be undone.")
+            Text("This will delete all tasks, execution history, and remove all MacTaskScheduler LaunchAgent plists. This cannot be undone.")
         }
+    }
+
+    static func relaunchApp() {
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // Pass bundle path as $0 positional arg — never interpolated into the command string
+        task.arguments = ["-c", "sleep 0.5; open \"$0\"", bundlePath]
+        try? task.run()
+        NSApplication.shared.terminate(nil)
     }
 
     private func resetApp() {
@@ -69,7 +79,7 @@ struct SettingsView: View {
 
         // Remove app data directory (execution history, scripts)
         guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
-        let appDir = appSupport.appendingPathComponent("MacScheduler")
+        let appDir = appSupport.appendingPathComponent("MacTaskScheduler")
         try? fm.removeItem(at: appDir)
 
         // Reset UserDefaults
@@ -155,17 +165,17 @@ struct SettingsView: View {
 
                     LocationRow(
                         label: "Execution History",
-                        path: "~/Library/Application Support/MacScheduler/history.json"
+                        path: "~/Library/Application Support/MacTaskScheduler/history.json"
                     )
 
                     LocationRow(
                         label: "Version History",
-                        path: "~/Library/Application Support/MacScheduler/Snapshots/"
+                        path: "~/Library/Application Support/MacTaskScheduler/Snapshots/"
                     )
 
                     LocationRow(
                         label: "App Logs",
-                        path: "~/Library/Logs/MacScheduler/"
+                        path: "~/Library/Logs/MacTaskScheduler/"
                     )
                 }
             }
@@ -350,6 +360,13 @@ struct SettingsView: View {
                     Text("Forever").tag(0)
                 }
                 .help("How long to keep task execution history")
+            }
+
+            Section("Troubleshooting") {
+                Button("Restart App") {
+                    Self.relaunchApp()
+                }
+                .help("Quit and relaunch the app, clearing all in-memory state")
             }
 
             Section("Danger Zone") {

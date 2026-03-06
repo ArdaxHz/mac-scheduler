@@ -14,6 +14,8 @@ class TaskListViewModel: ObservableObject {
     @Published var tasks: [ScheduledTask] = []
     @Published var selectedTask: ScheduledTask?
     @Published var isLoading = false
+    private var loadingCount = 0
+    private var activeActionIDs: Set<UUID> = []
     @Published var errorMessage: String?
     @Published var showError = false
     @Published var searchText = ""
@@ -107,10 +109,22 @@ class TaskListViewModel: ObservableObject {
         // to ensure SwiftUI has subscribed to @Published before data loads.
     }
 
+    private func beginLoading() {
+        loadingCount += 1
+        isLoading = true
+    }
+
+    private func endLoading() {
+        loadingCount = max(0, loadingCount - 1)
+        if loadingCount == 0 {
+            isLoading = false
+        }
+    }
+
     /// Discover all tasks from live LaunchAgents and cron files.
     func discoverAllTasks() async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         let log = AppLogger.shared
 
         do {
@@ -288,8 +302,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func addTask(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         AppLogger.shared.info("Adding task: \(task.launchdLabel) (backend: \(task.backend.rawValue))")
 
         do {
@@ -320,8 +334,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func updateTask(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         AppLogger.shared.info("Updating task: \(task.launchdLabel)")
 
         guard let oldTask = tasks.first(where: { $0.id == task.id }) else {
@@ -399,8 +413,8 @@ class TaskListViewModel: ObservableObject {
 
     /// Remove a Docker container with cascade options.
     func deleteDockerContainer(task: ScheduledTask, removeVolumes: Bool, removeImage: Bool, composeDown: Bool) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
 
         do {
             let docker = DockerService.shared
@@ -423,8 +437,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func deleteTask(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         AppLogger.shared.info("Deleting task: \(task.launchdLabel)")
 
         // Snapshot before delete — read content synchronously for launchd,
@@ -461,8 +475,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     func toggleTaskEnabled(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        guard !activeActionIDs.contains(task.id) else { return }
+        activeActionIDs.insert(task.id)
+        beginLoading()
+        defer {
+            activeActionIDs.remove(task.id)
+            endLoading()
+        }
 
         do {
             let service = SchedulerServiceFactory.service(for: task.backend)
@@ -480,8 +499,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     func runTaskNow(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        guard !activeActionIDs.contains(task.id) else { return }
+        activeActionIDs.insert(task.id)
+        beginLoading()
+        defer {
+            activeActionIDs.remove(task.id)
+            endLoading()
+        }
 
         do {
             let service = SchedulerServiceFactory.service(for: task.backend)
@@ -501,8 +525,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     func loadDaemon(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        guard !activeActionIDs.contains(task.id) else { return }
+        activeActionIDs.insert(task.id)
+        beginLoading()
+        defer {
+            activeActionIDs.remove(task.id)
+            endLoading()
+        }
 
         do {
             let service = SchedulerServiceFactory.service(for: task.backend)
@@ -514,8 +543,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     func unloadDaemon(_ task: ScheduledTask) async {
-        isLoading = true
-        defer { isLoading = false }
+        guard !activeActionIDs.contains(task.id) else { return }
+        activeActionIDs.insert(task.id)
+        beginLoading()
+        defer {
+            activeActionIDs.remove(task.id)
+            endLoading()
+        }
 
         do {
             let service = SchedulerServiceFactory.service(for: task.backend)
@@ -527,8 +561,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func loadAllDaemons() async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
 
         let launchdTasks = tasks.filter { $0.backend == .launchd && !$0.isEnabled && !$0.isReadOnly }
         for task in launchdTasks {
@@ -542,8 +576,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func unloadAllDaemons() async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
 
         let launchdTasks = tasks.filter { $0.backend == .launchd && $0.isEnabled && !$0.isReadOnly }
         for task in launchdTasks {
@@ -590,8 +624,8 @@ class TaskListViewModel: ObservableObject {
     // MARK: - Version History
 
     func revertTask(_ task: ScheduledTask, to snapshot: TaskSnapshot) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         AppLogger.shared.info("Reverting task \(task.launchdLabel) to snapshot from \(snapshot.timestamp)")
 
         guard let content = await versionService.readSnapshotContent(snapshot) else {
@@ -629,8 +663,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func restoreDeletedTask(from snapshot: TaskSnapshot) async {
-        isLoading = true
-        defer { isLoading = false }
+        beginLoading()
+        defer { endLoading() }
         AppLogger.shared.info("Restoring deleted task \(snapshot.taskLabel) from trash")
 
         guard let content = await versionService.readSnapshotContent(snapshot) else {
